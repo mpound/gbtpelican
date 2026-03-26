@@ -1,0 +1,33 @@
+#! /usr/bin/bash
+#
+#   for your amusement... make a movie of the weather predictions
+#
+#
+#   Typical use:
+#   find the md5 of the last one,and run
+#      ./get_weather pmd5=1b0a83ec2c433bbdb143fc502a6f60a7
+#   in order to prevent a duplicate file
+
+url=https://www.gb.nrao.edu/~rmaddale/Weather/DSSOverview.jpg
+jpg=DSSOverview.jpg
+sleep=600
+pmd5=0
+
+for arg in $*; do
+    export $arg
+done
+
+while true; do
+    wget -q $url
+    date=$(date -u +%Y-%m-%dT%H:%M:%S)
+    md5=$(md5sum $jpg | cut -c1-32)
+    echo $date $md5
+    if [ $md5 != $pmd5 ]; then
+	mv $jpg ${date}.jpg
+	pmd5=$md5
+	echo "*** New ${date}.jpg"
+    else
+	rm $jpg
+    fi
+    sleep $sleep
+done

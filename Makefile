@@ -1,0 +1,304 @@
+#    various target to aid in installing GBT-EDGE
+#
+SHELL = /bin/bash
+
+# use standard wget or Peter's caching wgetc 
+WGET = wget
+
+# use python3 or anaconda3
+PYTHON = anaconda3
+
+# timing
+TIME = /usr/bin/time
+
+# parallel?
+OMP = OMP_NUM_THREADS=1
+
+# Greenbank locations (useful for rsync)
+
+SDIR = /home/sdfits
+WDIR = /users/rmaddale/Weather/ArchiveCoeffs
+
+# git directories we should have here and keep updated
+
+GIT_DIRS = gbtpipe degas maskmoment edge_pydb gbtgridder
+
+# URLs that we'll need
+
+URL0a = https://www.astro.umd.edu/~teuben/edge/data/AGBT21B_024_01.tar
+URL0b = https://www.astro.umd.edu/~teuben/edge/data/GBTWeather.tar.gz
+URL1  = https://github.com/GBTSpectroscopy/gbtpipe
+URL1a = https://github.com/teuben/gbtpipe
+URL2  = https://github.com/GBTSpectroscopy/degas
+URL2a = https://github.com/teuben/degas
+URL3  = https://github.com/astroumd/lmtoy
+URL4  = https://github.com/tonywong94/maskmoment
+URL4a = https://github.com/teuben/maskmoment
+URL5  = https://github.com/tonywong94/edge_pydb
+URL6  = https://github.com/richteague/bettermoments
+URL7  = https://github.com/GreenBankObservatory/gbtgridder
+URL7a = https://github.com/teuben/gbtgridder
+URL8  = https://github.com/radio-astro-tools/spectral-cube/
+URL9  = https://github.com/teuben/nemo
+URL10 = https://github.com/teuben/lmtoy_2021-S1-MX-3
+
+# FITS extension for benchmark
+EXT = 12CO_rebase3_smooth2_hanning2
+EXT = 12CO_rebase5_smooth1.3_hanning2
+
+.PHONY:  help install build
+
+## help:     This Help
+help : Makefile
+	@sed -n 's/^##//p' $<
+
+## git:      make the needed git repos (GIT_DIRS)
+git:  $(GIT_DIRS)
+	@echo Last git: `date` >> git.log
+
+## pull:     update (git pull) the used git repos
+pull:
+	@echo -n "lmtoy: "; git pull
+	-@for dir in $(GIT_DIRS); do\
+	(echo -n "$$dir: " ;cd $$dir; git pull); done
+	@echo Last pull: `date` >> git.log
+
+## status:   query status of the used git repos
+status:
+	@echo -n "lmtoy: "; git status -uno
+	-@for dir in $(GIT_DIRS); do\
+	(echo -n "$$dir: " ;cd $$dir; git status -uno); done
+
+gbtpipe:
+	# git clone $(URL1)
+	git clone -b twarm2 $(URL1a)
+	(cd $@; git remote add upstream $(URL1))
+
+gbtpipe_pjt:
+	git clone $(URL1a) gbtpipe_pjt
+	(cd gbtpipe_pjt; git remote add upstream $(URL1))
+
+degas:
+	#git clone $(URL2)
+	git clone -b tmb $(URL2a)
+	(cd $@; git remote add upstream $(URL2))
+
+degas_pjt:
+	git clone $(URL2a) degas_pjt
+	(cd degas_pjt; git remote add upstream $(URL2))
+
+lmtoy:
+	git clone $(URL3)
+
+maskmoment:
+	git clone $(URL4a)
+
+edge_pydb:
+	git clone $(URL5)
+
+gbtgridder_gbo:
+	git clone $(URL7) gbtgridder_gbo
+
+gbtgridder:
+	# git clone -b release_3.0  $(URL7)
+	git clone -b python3 $(URL7a)
+	(cd gbtgridder; git remote add upstream $(URL7))  
+
+spectral-cube:
+	git clone $(URL8)
+
+edge_env:
+	python3 -m venv edge_env
+
+install_anaconda3:
+	./install_anaconda3
+
+
+# note gbtpipe needs to be installed before degas
+install_gbtpipe:  gbtpipe edge_env
+	(cd gbtpipe;\
+	source ../edge_env/bin/activate;\
+	pip3 install --upgrade pip;\
+	pip3 install -e .)
+
+install_degas:  degas edge_env
+	(cd degas;\
+	source ../edge_env/bin/activate;\
+	pip3 install --upgrade pip;\
+	pip3 install -e .)
+
+install_maskmoment:  maskmoment edge_env
+	(cd maskmoment;\
+	source ../edge_env/bin/activate;\
+	pip3 install --upgrade pip;\
+	pip3 install -e .)
+
+install_edge:  edge_pydb edge_env
+	(cd edge_pydb;\
+	source ../edge_env/bin/activate;\
+	pip3 install --upgrade pip;\
+	pip3 install -e .)
+
+lmtoy_2021-S1-MX-3:
+	git clone $(URL10)
+
+
+#  running at GBO, rawdata just points to /home/sdfits
+#  offsite you will need to supply your own, YMMV
+#  usually using the rsync target here, and running it from GBO
+#  this also updates the weather database
+
+## rawdata:  symlink to the SDFITS data (SDIR=)
+rawdata:
+	@if [ -d $(SDIR) ]; then \
+	  ln -s $(SDIR) rawdata; \
+	else \
+	  echo "Not at GBO; Provide your own symlink/directory named 'rawdata'"; \
+          echo "or get a precomputed dataset via: make NGC0001"; \
+	  echo "SDIR=$(SDIR)"; \
+	fi
+
+## weather:  symlink to the GBO weather database directory (WDIR=)
+weather:
+	@if [ -d $(WDIR) ]; then \
+	  ln -s $(WDIR) weather; \
+	else \
+	  echo "Not at GBO; Provide your own symlink/directory named 'weather'"; \
+	  echo "WDIR=$(WDIR)"; \
+	fi
+
+# python >= 3.7 is now required
+# gbt runs 3.6.8
+# hack to install a more recent python
+pjt:	lmtoy
+	(cd lmtoy; make install_python)
+	@echo "Make sure you 'source lmtoy/python_start.sh'"
+
+data0:
+	mkdir -p rawdata
+	wget -q $(URL0a) -O - | tar -C rawdata -xvf -
+	@echo "Warning:   this only gives you session 1 for benchmarking"
+
+weather0:
+	wget -q $(URL0b) -O - | tar zxf -
+	ln -s GBTWeather weather
+
+EXT = 12CO_rebase3_smooth2_hanning2
+EXT = 12CO_rebase5_smooth1.3_hanning2
+
+# 1 processor    280.58user 6.48system 4:47.21elapsed 99%CPU
+## bench0:   reduction of first NGC0001, no mask
+bench0:
+	rm -rf NGC0001
+	$(OMP) $(TIME) ./reduce.py -g 1 NGC0001
+	fitsccd NGC0001/NGC0001_$(EXT).fits - | ccdstat - bad=0 qac=t label=bench0
+
+#  all procs:    556.80user   7.36system  3:17.45elapsed 285%CPU    (peter's laptop - i5-1135G7)
+#  1 processor   182.82user   3.72system  3:06.68elapsed  99%CPU    (peter's laptop)
+#  all procs:   3068.26user 178.50system 10:22.19elapsed 521%CPU    (at GBO's fourier machine - Xeon E5620)
+#  1 processor   536.42user  10.68system 10:25.20elapsed  87%CPU    (at GBO's fourier machine)
+bench1:	NGC0001
+	$(OMP) $(TIME) ./reduce.py -g 1 -s NGC0001
+	fitsccd NGC0001/NGC0001_$(EXT).fits -|ccdstat - bad=0 qac=t label=bench1a
+	fitsccd NGC0001/NGC0001_$(EXT).fits -|ccdstat - bad=0 qac=t robust=t label=bench1b
+
+
+# 1 processor:   
+bench2:
+	$(OMP) $(TIME) ./reduce.py -g 1 -M NGC0001
+	fitsccd NGC0001/NGC0001_$(EXT).fits -|ccdstat - bad=0 qac=t label=bench2a
+	fitsccd NGC0001/NGC0001_$(EXT).fits -|ccdstat - bad=0 qac=t robust=t label=bench2b
+
+## bench3:   reduction of first NGC0001, with the standard 'mask_NGC0001_Havfield_v1.fits'
+bench3:
+	$(OMP) $(TIME) ./reduce.py -g 1 -m mask_NGC0001_Havfield_v1.fits NGC0001
+
+
+bench5:
+	./plot_spectrum.py NGC0001/NGC0001_$(EXT).fits "00:07:15.84" "+27:42:29.7" 8.4 0 0 
+
+NGC0001:
+	wget -q https://www.astro.umd.edu/~teuben/edge/data/NGC0001.tar -O - | tar xvf -
+
+other:
+	pip install pyspeckit
+
+#  rsync:   only useful if you are at GBO and want to rsync to your offline location
+#  if you want to fully reduce the data off-line
+SEQ = 01
+REM = teuben@lma.astro.umd.edu:/n/lma1/teuben/
+## rsync:    rsync to REM=$REM and SEQ=$SEQ
+rsync:
+	@echo rsync to REM=$(REM) and SEQ=$(SEQ)
+	du -sh $(SDIR)/AGBT21B_024_$(SEQ)
+	@echo rawdata SEQ=$(SEQ)
+	-rsync -ahv --bwlimit=8000 $(SDIR)/AGBT21B_024_$(SEQ) $(REM)/GBTRawdata
+	@echo weather
+	-rsync -ahv --bwlimit=8000 $(WDIR)/Coeffs* $(REM)/GBTWeather
+
+#  this lengthy IDL based procedure computes the mean/rms/min/max for tsys for a given SEQ
+## tsys:     make tsys and summary files for SEQ=$SEQ
+tsys:
+	./tsys.py AGBT21B_024_$(SEQ)
+	cp pro/AGBT21B_024_$(SEQ).tsys tsyslogs
+	@echo git add           tsyslogs/AGBT21B_024_$(SEQ).tsys
+	@echo git commit -m new tsyslogs/AGBT21B_024_$(SEQ).tsys
+	cp pro/AGBT21B_024_$(SEQ).summary summarylogs
+	@echo git add           summarylogs/AGBT21B_024_$(SEQ).summary
+	@echo git commit -m new summarylogs/AGBT21B_024_$(SEQ).summary
+
+## astrid:   make astridlogs for SEQ=$SEQ
+astrid:
+	(cd astridlogs; getastridlog AGBT21B_024_$(SEQ))
+	@echo git add           astridlogs/AGBT21B_024_$(SEQ)_log.txt
+	@echo git commit -m new astridlogs/AGBT21B_024_$(SEQ)_log.txt
+
+## nemo:     install NEMO locally using YAPP
+YAPP = pgplot
+nemo:
+	git clone $(URL9)
+	(cd nemo; ./configure --with-yapp=$(YAPP); make build check bench5)
+
+#  produce a sample edge.sh
+edge.sh:
+	@echo '#  this is a sample edge.sh file, edit as need be'
+	@echo "export GBTWEATHER=$(PWD)/weather/"
+	@echo "source $(PWD)/anaconda3/python_start.sh"
+	@echo "source $(PWD)/nemo/nemo_start.sh"
+	@echo "# for a virtual environment, un-comment this:"
+	@echo "# source $(PWD)/edge_env/bin/activate"
+
+#
+show:
+	@grep -v ^# gals.pars | awk '{if (NF>0) print $$1}' | sort  | uniq
+
+
+#  galaxies with masks
+MGCAL = NGC0001 NGC0169 NGC0495 NGC0776 NGC0932 NGC2691  UGC01659 UGC02134 UGC02239 UGC04245
+
+# mask_CGCG536-030_Havfield_v1.fits
+
+# getastridlog AGBT21B_024_10
+ 
+## stats:    make a new stats.log
+stats:
+	./do_all_stats > do_all_stats.log
+	cp do_all_stats.log stats.log
+	@echo Results in  stats.log
+	./mk_summary1.py    > README.html
+	./mk_summary1.py -s > README2.html
+	@echo "summary in https://www.astro.umd.edu/~teuben/GBT-EDGE/README.html"
+	@echo "all sessions in https://www.astro.umd.edu/~teuben/GBT-EDGE/README2.html"
+
+## sessions: report which galaxy in which session (not yet used)
+sessions:
+	grep -v ^\# gals.pars | awk '{if (NF>2) print $$1,$$2}'  | sort | uniq > sessions.log
+
+## all:      create a runs.sh file to re-run the whole pipeline, ideally with slurm or gnu parallel
+all:
+	./mk_runs.py
+	@echo "# Created by 'make all'" > runs.sh
+	ls ./run_*.sh | awk '{printf("bash %s > %s.log 2>&1\n",$$1,$$1)}' >> runs.sh
+	@echo 'Now run:'
+	@echo '   OMP_NUM_THREADS=1  parallel --jobs 16 < runs.sh'
+	@echo "e.g. 51 galaxies on 16 processors took 40 mins"
