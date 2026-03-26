@@ -18,6 +18,8 @@ OMP = OMP_NUM_THREADS=1
 
 SDIR = /home/sdfits
 WDIR = /users/rmaddale/Weather/ArchiveCoeffs
+PID  = AGBT25B_386
+
 
 # git directories we should have here and keep updated
 
@@ -230,28 +232,28 @@ REM = teuben@lma.astro.umd.edu:/n/lma1/teuben/
 ## rsync:    rsync to REM=$REM and SEQ=$SEQ
 rsync:
 	@echo rsync to REM=$(REM) and SEQ=$(SEQ)
-	du -sh $(SDIR)/AGBT21B_024_$(SEQ)
+	du -sh $(SDIR)/$(PID)_$(SEQ)
 	@echo rawdata SEQ=$(SEQ)
-	-rsync -ahv --bwlimit=8000 $(SDIR)/AGBT21B_024_$(SEQ) $(REM)/GBTRawdata
+	-rsync -ahv --bwlimit=8000 $(SDIR)/$(PID)_$(SEQ) $(REM)/GBTRawdata
 	@echo weather
 	-rsync -ahv --bwlimit=8000 $(WDIR)/Coeffs* $(REM)/GBTWeather
 
 #  this lengthy IDL based procedure computes the mean/rms/min/max for tsys for a given SEQ
 ## tsys:     make tsys and summary files for SEQ=$SEQ
 tsys:
-	./tsys.py AGBT21B_024_$(SEQ)
-	cp pro/AGBT21B_024_$(SEQ).tsys tsyslogs
-	@echo git add           tsyslogs/AGBT21B_024_$(SEQ).tsys
-	@echo git commit -m new tsyslogs/AGBT21B_024_$(SEQ).tsys
-	cp pro/AGBT21B_024_$(SEQ).summary summarylogs
-	@echo git add           summarylogs/AGBT21B_024_$(SEQ).summary
-	@echo git commit -m new summarylogs/AGBT21B_024_$(SEQ).summary
+	./tsys.py $(PID)_$(SEQ)
+	cp pro/$(PID)_$(SEQ).tsys tsyslogs
+	@echo git add           tsyslogs/$(PID)_$(SEQ).tsys
+	@echo git commit -m new tsyslogs/$(PID)_$(SEQ).tsys
+	cp pro/$(PID)_$(SEQ).summary summarylogs
+	@echo git add           summarylogs/$(PID)_$(SEQ).summary
+	@echo git commit -m new summarylogs/$(PID)_$(SEQ).summary
 
 ## astrid:   make astridlogs for SEQ=$SEQ
 astrid:
-	(cd astridlogs; getastridlog AGBT21B_024_$(SEQ))
-	@echo git add           astridlogs/AGBT21B_024_$(SEQ)_log.txt
-	@echo git commit -m new astridlogs/AGBT21B_024_$(SEQ)_log.txt
+	(cd astridlogs; getastridlog $(PID)_$(SEQ))
+	@echo git add           astridlogs/$(PID)_$(SEQ)_log.txt
+	@echo git commit -m new astridlogs/$(PID)_$(SEQ)_log.txt
 
 ## nemo:     install NEMO locally using YAPP
 YAPP = pgplot
@@ -278,8 +280,9 @@ MGCAL = NGC0001 NGC0169 NGC0495 NGC0776 NGC0932 NGC2691  UGC01659 UGC02134 UGC02
 
 # mask_CGCG536-030_Havfield_v1.fits
 
-# getastridlog AGBT21B_024_10
- 
+# getastridlog AGBT25B_386_01
+
+
 ## stats:    make a new stats.log
 stats:
 	./do_all_stats > do_all_stats.log
