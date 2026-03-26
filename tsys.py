@@ -4,7 +4,8 @@
 
 """
    Example Usage:
-       ./tsys.py AGBT21B_024_06 
+       ./tsys.py GBT25B_386_01
+
 
    Produces pro/AGBT21B_024_06.tsys which looks something like this:
 
