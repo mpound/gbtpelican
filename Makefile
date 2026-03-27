@@ -23,9 +23,9 @@ PID  = AGBT25B_386
 
 # git directories we should have here and keep updated
 
-GIT_DIRS = gbtpipe degas maskmoment edge_pydb gbtgridder
+GIT_DIRS = gbtpipe degas maskmoment gbtgridder
 
-# URLs that we'll need
+# URLs that we may need
 
 URL0a = https://www.astro.umd.edu/~teuben/edge/data/AGBT21B_024_01.tar
 URL0b = https://www.astro.umd.edu/~teuben/edge/data/GBTWeather.tar.gz
@@ -273,14 +273,6 @@ edge.sh:
 #
 show:
 	@grep -v ^# gals.pars | awk '{if (NF>0) print $$1}' | sort  | uniq
-
-
-#  galaxies with masks
-MGCAL = NGC0001 NGC0169 NGC0495 NGC0776 NGC0932 NGC2691  UGC01659 UGC02134 UGC02239 UGC04245
-
-# mask_CGCG536-030_Havfield_v1.fits
-
-# getastridlog AGBT25B_386_01
 
 
 ## stats:    make a new stats.log
