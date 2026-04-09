@@ -42,7 +42,6 @@ URL7  = https://github.com/GreenBankObservatory/gbtgridder
 URL7a = https://github.com/teuben/gbtgridder
 URL8  = https://github.com/radio-astro-tools/spectral-cube/
 URL9  = https://github.com/teuben/nemo
-URL10 = https://github.com/teuben/lmtoy_2021-S1-MX-3
 
 # FITS extension for benchmark
 EXT = 12CO_rebase3_smooth2_hanning2
@@ -134,16 +133,6 @@ install_maskmoment:  maskmoment edge_env
 	source ../edge_env/bin/activate;\
 	pip3 install --upgrade pip;\
 	pip3 install -e .)
-
-install_edge:  edge_pydb edge_env
-	(cd edge_pydb;\
-	source ../edge_env/bin/activate;\
-	pip3 install --upgrade pip;\
-	pip3 install -e .)
-
-lmtoy_2021-S1-MX-3:
-	git clone $(URL10)
-
 
 #  running at GBO, rawdata just points to /home/sdfits
 #  offsite you will need to supply your own, YMMV
