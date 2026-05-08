@@ -228,6 +228,7 @@ other:
 #  rsync:   only useful if you are at GBO and want to rsync to your offline location
 #  if you want to fully reduce the data off-line
 SEQ = 01
+-include SEQ
 REM = teuben@lma.astro.umd.edu:/n/lma1/teuben/
 ## rsync:    rsync to REM=$REM and SEQ=$SEQ
 rsync:
