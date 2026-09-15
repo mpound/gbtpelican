@@ -98,6 +98,7 @@ sdf = load(fnm,loadAll=False)
 pelicancenter=SkyCoord('20:51:08.07 +44:26:35.3',frame='fk5',unit=(u.hr,u.degree))
 si = sdf._sdf[0]._index
 scans=[31,32,35,36,37,38,39,40,41,51,52,53,54,55,56,57,58]
+#@TODO change sb to ScanBlock and use sb.extend to concat the feeds
 sb = []
 tavg=[]
 do="HCO+"
@@ -112,6 +113,7 @@ for i in range(0,15):
     lsrk.baseline(degree=2,include=[(-20*kms,-6*kms),(3*kms,20*kms)],remove=True)
     #lsrk.plot(ymin=0.002,ymax=0.003,yaxis_unit="K")
     sb[i].subtract_baseline(lsrk.baseline_model,tol=1E5)
+    
     
 sb[6].plot(vmin=-0.005,vmax=0.005)
     #tavg[i].with_frame("LSRK").plot(xaxis_unit="km/s",xmin=-15,xmax=15)
