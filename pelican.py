@@ -195,7 +195,7 @@ if __name__ == "__main__":
     if args.plot:
         sball[args.line].timeaverage().with_frame('LSRK').plot(xaxis_unit='km/s')
     if args.write:
-        sball[args.line].write('pelican_{args.line}_all.sdfits',flags=True)
+        sball[args.line].write(f'pelican_{args.line}_all.sdfits',flags=True)
         
     #final_sb.plot(vmin=-0.005,vmax=0.005)
         #tavg[i].with_frame("LSRK").plot(xaxis_unit="km/s",xmin=-15,xmax=15)
