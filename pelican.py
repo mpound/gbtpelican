@@ -11,6 +11,7 @@ from typing import NamedTuple
 from astropy.units.quantity import Quantity
 import argparse
 import sys
+import os
 
 def xyplot(xdeg:np.ndarray,ydeg:np.ndarray,title:str,unit:str|u.Unit):
     x=(xdeg*u.degree).to(unit)
@@ -119,85 +120,150 @@ def baseline(scanblock:list,subtract:bool, restvalue:Quantity, line: str, plot=F
             scanblock[i].subtract_baseline(tavg[i].baseline_model,tol=1E5)
         #return BaselineAvg(timeaverage=tavg,  model=lsrk.baseline_model, line=line)
     
+class LineParams:
+    """Parameters for each Line map/reduction"""
+    def __init__(self, line:str, restfreq:Quantity, startchan:int = 1, nchan: int = 16384, files=[], scans=[], sdf:list=[None]):
+        self.line = line.upper()
+        self.restfreq = restfreq
+        self.startchan = startchan
+        self.nchan = nchan
+        self.channels = (startchan,startchan+nchan)
+        self.check_files(files)
+        #scans with filename as dict key
+        self._filescandict = {}
+        self.sdf = [None]*len(files)
+        self.final_sb = [ScanBlock()]*len(files)
+        self.files = files
+        self.scans = scans
+
+        if len(files) != len(scans):
+            raise ValueError(f"Number of files {len(files)} must equal number of scan {len(scans)}")
+        for f in range(len(files)):
+            self._filescandict[files[f]] = scans[f]
+
+    def check_files(self,files):
+        bad = []
+        for x in files:
+          if not os.path.exists(x):
+              bad.append(x)
+        if len(bad)!=0:
+            raise ValueError(f"Could not find file(s) {bad}")
+    @property
+    def endchan(self):
+        """end channel"""
+        return self.channels[-1]
+    def load(self,n:int= 0):
+        print(f"Loading {self.files[n]}")
+        self.sdf[n] = GBTFITSLoad(self.files[n])
+        return self.sdf[n]
+    def concat(self):
+        """Concatenate all ScanBlocks"""
+        pass
+    def write(self):
+        pass
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog=sys.argv[0])
-    parser.add_argument("--feeds",type=int,nargs='+', action='store',help="list feeds to reduce, e.g. --feeds 0 1 2 3 ", required=True)
-    parser.add_argument("--line",type=str, action='store',help="which line to reduce. One of HCO+, HCN (case insensisitive) ", required=True)
-    parser.add_argument("--file", type=str, default=None, action='store', help='output file for final scanblock')
     parser.add_argument('--baseline',default=False,action='store_true',help='remove baseline')
-    parser.add_argument('--plot',default=False,action='store_true',help='plot removed baseline')
+    # @TODO allow negatives to be "all but -M -N feeds"
+    parser.add_argument("--feeds",type=int,nargs='+', action='store',help="list feeds to reduce, e.g. --feeds 0 1 2 3 ", required=True)  
+    parser.add_argument("--file", type=str, default=None, action='store', help='output file for final scanblock')
+    parser.add_argument('--flux',  action="store_true", help='Use Flux(Jy) instead of Ta(K)')
+    parser.add_argument("--line",type=str, action='store',help="which line to reduce. One of HCO+, HCN (case insensisitive) ", required=True)
+    parser.add_argument("--nchan",type=int, default=151,help="how many channels to keep")
+    parser.add_argument('--plot',default=False,action='store_true',help='plot spectra')
     parser.add_argument('--verbose', '-v', default=False, action='store_true', help='verbose mode')
-    parser.add_argument('--write', '-w', default=True, action='store_false', help='write to pelican_line_feed.sdfits')
+    parser.add_argument('--split', default=False, action='store_true', help='If true, split sdfits output files into separate feeds')
+    parser.add_argument('--write', '-w', default=False, action='store_false', help='write to pelican_{line}_{feed}.sdfits')
     args = parser.parse_args()
     
-    
-    lines = ["HCO+","HCN"]
-    args.line = args.line.upper()
-    if args.line not in lines:
-        raise ValueError(f"line must be one of {lines}")
-    channels = {}
-    startchan = {}
-    final_sb={}
-    restfreq = {}
-    restfreq["HCO+"] = 89.188518*u.GHz
-    restfreq["HCN"] = 88.6318473*u.GHz
-
-    # use a total width of 0.01 GHz centered on rest frequencies
-    startchan["HCO+"] = 3800
-    startchan["HCN"] = 12311
-    nchan = 151
-    final_sb["HCO+"] = ScanBlock()
-    final_sb["HCN"] = ScanBlock()
+    # Constant parameters
     kms=u.km/u.s
     pelicancenter=SkyCoord('20:51:08.07 +44:26:35.3',frame='fk5',unit=(u.hr,u.degree))
     
-    for k in restfreq:
-        channels[k] = [startchan[k],startchan[k]+nchan]
+    # Parameters for each available line
+    s01scans=[31,32,35,36,37,38,39,40,41,51,52,53,54,55,56,57,58]
+    # Session 3 scans 48-69 bad ARGUS, Scan 85 forgot to point first.
+    s03scans = np.concatenate( (np.arange(32,41), np.arange(72,81), np.arange(93,102)) ).tolist()
+    lphcop = LineParams("HCO+", 89.188518*u.GHz, 3800, args.nchan,
+                    files=["/bigdisk/data/gbt/AGBT25B_386_01/AGBT25B_386_01.raw.vegas/",
+                           "/bigdisk/data/gbt/AGBT25B_386_03/AGBT25B_386_03.raw.vegas/"],
+                    scans=[s01scans, s03scans]
+                       )
+    #@TODO HCO+ and HCN are in the same files, so avoid reading them twice. Possibly use sdf keyword.
+    lphcn = LineParams("HCN",  88.6318473*u.GHz, 12311, args.nchan,
+                    files=["/bigdisk/data/gbt/AGBT25B_386_01/AGBT25B_386_01.raw.vegas/",
+                           "/bigdisk/data/gbt/AGBT25B_386_03/AGBT25B_386_03.raw.vegas/"],
+                    scans=[s01scans, s03scans]
+                      )
+    lplist = [lphcop, lphcn]
+    lines = [x.line for x in lplist]
+    args.line = args.line.upper()
+    if args.line not in lines:
+        raise ValueError(f"line must be one of {lines}")
+    lpdict = {}
+    for lp in lplist:
+        lpdict[lp.line] = lp
+    print(lpdict)
+    #channels = {}
+    #startchan = {}
+    #final_sb={}
+    #restfreq = {}
+    #restfreq["HCO+"] = 89.188518*u.GHz
+    #restfreq["HCN"] = 88.6318473*u.GHz
 
-    fnm = "/bigdisk/data/gbt/AGBT25B_386_01/AGBT25B_386_01.raw.vegas/"
-    print(f"Loading {fnm}")
-    sdf = load(fnm,loadAll=False)
+    # use a total width of 0.01 GHz centered on rest frequencies
+    #startchan["HCO+"] = 3800
+    #startchan["HCN"] = 12311
+    #final_sb["HCO+"] = ScanBlock()
+    #final_sb["HCN"] = ScanBlock()
+    
+    #for k in restfreq:
+    #    channels[k] = [startchan[k],startchan[k]+nchan]
 
-    si = sdf._sdf[0]._index
-    scans=[31,32,35,36,37,38,39,40,41,51,52,53,54,55,56,57,58]
-    #scans=[30]
-    maxfeed=15
-    feeds = np.arange(0,maxfeed)
+    cur_lp = lpdict[args.line]
+    for n in range(len(cur_lp.sdf)):
+        sdf = cur_lp.load(n)
+        print(f"Loaded {sdf=}")
+    #si = sdf._sdf[0]._index
+    #maxfeed=15
+    #feeds = np.arange(0,maxfeed)
     #@TODO change sb to ScanBlock and use sb.extend to concat the feeds
 
-    doplot=args.plot
-    dobase=args.baseline
-    lsrk = {"HCO+": [], "HCN":[]}
-    print(f"Doing feed={args.feeds}")
-    feedcount = 0
-    for k in [args.line]:
+        doplot=args.plot
+        dobase=args.baseline
+        lsrk = []
+        print(f"Doing feed={args.feeds}")
+        feedcount = 0
+        k = cur_lp.line
         for i in args.feeds:
-            print(f"Doing {k} feed {i} {scans=} channels={channels[k]}")
-            final_sb[k].append(sdf.getfs(scan=scans,ifnum=0,plnum=0,fdnum=i,channel=channels[k]))
+            print(f"Doing {k} feed {i} scans={cur_lp.scans[n]} channels={cur_lp.channels}")
+            cur_lp.final_sb[n].append(sdf.getfs(scan=cur_lp.scans[n],ifnum=0,plnum=0,fdnum=i,channel=cur_lp.channels))
         if dobase:
-            baseline(final_sb[k],subtract=True,restvalue=restfreq[k],line=k,plot=doplot)
+            baseline(cur_lp.final_sb[n],subtract=True,restvalue=cur_lp.restfreq,line=k,plot=doplot)
         for i in args.feeds:          
-            _x = final_sb[k][feedcount].timeaverage()
-            _x.rest_value=restfreq[k]
-            lsrk[k].append(_x.with_frame('LSRK'))
+            _x = cur_lp.final_sb[n][feedcount].timeaverage()
+            _x.rest_value=cur_lp.restfreq
+            lsrk.append(_x.with_frame('LSRK'))
             feedcount= feedcount+1
         if args.write:
             count = 0
             for i in args.feeds:
-                final_sb[k][count].write(f"pelican_{args.line}_{i}.sdfits",flags=True)
+                cur_lp.final_sb[n][count].write(f"pelican_{args.line}_{i}.sdfits",flags=True)
                 count = count+ 1
         
-    sball = {"HCN": ScanBlock(), "HCO+": ScanBlock()}
-    if len(args.feeds) > 1:
-        for i in range(len(final_sb[args.line])):
-            sball[args.line].extend(final_sb[args.line][i])
-        final_avg = sball[args.line].timeaverage()
-    if args.plot:
-        sball[args.line].timeaverage().with_frame('LSRK').plot(xaxis_unit='km/s')
-    if args.write:
-        sball[args.line].write(f'pelican_{args.line}_all.sdfits',flags=True)
-        
-    #final_sb.plot(vmin=-0.005,vmax=0.005)
-        #tavg[i].with_frame("LSRK").plot(xaxis_unit="km/s",xmin=-15,xmax=15)
-        #tavg[i].rest_value=restfreq["HCN"]
-        #tavg[i].with_frame("LSRK").plot(xaxis_unit="km/s",xmin=-15,xmax=15)
+        if False:
+            sball = {"HCN": ScanBlock(), "HCO+": ScanBlock()}
+            if len(args.feeds) > 1:
+                for i in range(len(final_sb[args.line])):
+                    sball[args.line].extend(final_sb[args.line][i])
+                final_avg = sball[args.line].timeaverage()
+            if args.plot:
+                sball[args.line].timeaverage().with_frame('LSRK').plot(xaxis_unit='km/s')
+            if args.write:
+                sball[args.line].write(f'pelican_{args.line}_all.sdfits',flags=True)
+                
+            #final_sb.plot(vmin=-0.005,vmax=0.005)
+                #tavg[i].with_frame("LSRK").plot(xaxis_unit="km/s",xmin=-15,xmax=15)
+                #tavg[i].rest_value=restfreq["HCN"]
+                #tavg[i].with_frame("LSRK").plot(xaxis_unit="km/s",xmin=-15,xmax=15)
