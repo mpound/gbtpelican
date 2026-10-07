@@ -158,7 +158,11 @@ class LineParams:
         return self.sdf[n]
     def concat(self):
         """Concatenate all ScanBlocks"""
-        pass
+        s = ScanBlock()
+        for f in self.final_sb:
+            s.extend(f)
+        return s
+
     def write(self):
         pass
 
@@ -191,7 +195,7 @@ if __name__ == "__main__":
                     scans=[s01scans, s03scans]
                        )
     #@TODO HCO+ and HCN are in the same files, so avoid reading them twice. Possibly use sdf keyword.
-    lphcn = LineParams("HCN",  88.6318473*u.GHz, 12311, args.nchan,
+    lphcn = LineParams("HCN",  88.6318473*u.GHz, 12250, args.nchan,
                     files=["/bigdisk/data/gbt/AGBT25B_386_01/AGBT25B_386_01.raw.vegas/",
                            "/bigdisk/data/gbt/AGBT25B_386_03/AGBT25B_386_03.raw.vegas/"],
                     scans=[s01scans, s03scans]
@@ -238,7 +242,7 @@ if __name__ == "__main__":
         k = cur_lp.line
         for i in args.feeds:
             print(f"Doing {k} feed {i} scans={cur_lp.scans[n]} channels={cur_lp.channels}")
-            cur_lp.final_sb[n].append(sdf.getfs(scan=cur_lp.scans[n],ifnum=0,plnum=0,fdnum=i,channel=cur_lp.channels))
+            cur_lp.final_sb[n].append(sdf.getfs(scan=cur_lp.scans[n],ifnum=0,plnum=0,fdnum=i,channel=cur_lp.channels,shift_method='interpolate'))
         if dobase:
             baseline(cur_lp.final_sb[n],subtract=True,restvalue=cur_lp.restfreq,line=k,plot=doplot)
         for i in args.feeds:          
@@ -246,24 +250,25 @@ if __name__ == "__main__":
             _x.rest_value=cur_lp.restfreq
             lsrk.append(_x.with_frame('LSRK'))
             feedcount= feedcount+1
-        if args.write:
-            count = 0
-            for i in args.feeds:
-                cur_lp.final_sb[n][count].write(f"pelican_{args.line}_{i}.sdfits",flags=True)
-                count = count+ 1
+    if args.write:
+      #count = 0
+    #    for i in args.feeds:
+    #        cur_lp.final_sb[n][count].write(f"pelican_{args.line}_{i}.sdfits",flags=True)
+    #        count = count+ 1
+        cur_lp.concat().write(f"pelican_{args.line}.sdfits",flags=False)
         
-        if False:
-            sball = {"HCN": ScanBlock(), "HCO+": ScanBlock()}
-            if len(args.feeds) > 1:
-                for i in range(len(final_sb[args.line])):
-                    sball[args.line].extend(final_sb[args.line][i])
-                final_avg = sball[args.line].timeaverage()
-            if args.plot:
-                sball[args.line].timeaverage().with_frame('LSRK').plot(xaxis_unit='km/s')
-            if args.write:
-                sball[args.line].write(f'pelican_{args.line}_all.sdfits',flags=True)
-                
-            #final_sb.plot(vmin=-0.005,vmax=0.005)
-                #tavg[i].with_frame("LSRK").plot(xaxis_unit="km/s",xmin=-15,xmax=15)
-                #tavg[i].rest_value=restfreq["HCN"]
-                #tavg[i].with_frame("LSRK").plot(xaxis_unit="km/s",xmin=-15,xmax=15)
+    if False:
+        sball = {"HCN": ScanBlock(), "HCO+": ScanBlock()}
+        if len(args.feeds) > 1:
+            for i in range(len(final_sb[args.line])):
+                sball[args.line].extend(final_sb[args.line][i])
+            final_avg = sball[args.line].timeaverage()
+        if args.plot:
+            sball[args.line].timeaverage().with_frame('LSRK').plot(xaxis_unit='km/s')
+        if args.write:
+            sball[args.line].write(f'pelican_{args.line}_all.sdfits',flags=True)
+            
+        #final_sb.plot(vmin=-0.005,vmax=0.005)
+            #tavg[i].with_frame("LSRK").plot(xaxis_unit="km/s",xmin=-15,xmax=15)
+            #tavg[i].rest_value=restfreq["HCN"]
+            #tavg[i].with_frame("LSRK").plot(xaxis_unit="km/s",xmin=-15,xmax=15)
