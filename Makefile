@@ -139,6 +139,15 @@ install_maskmoment:  maskmoment edge_env
 #  usually using the rsync target here, and running it from GBO
 #  this also updates the weather database
 
+## sdfits:   show sessions in /home/sdfits for this project
+sdfits:
+	@ls -dl /home/sdfits/$(PID)_*
+
+
+## sdfits2:  show filesize in selected SEQ
+sdfits2:
+	@ls -l /home/sdfits/$(PID)_$(SEQ)
+
 ## rawdata:  symlink to the SDFITS data (SDIR=)
 rawdata:
 	@if [ -d $(SDIR) ]; then \
@@ -223,10 +232,10 @@ REM = teuben@lma.astro.umd.edu:/n/lma1/teuben/
 rsync:
 	@echo rsync to REM=$(REM) and SEQ=$(SEQ)
 	du -sh $(SDIR)/$(PID)_$(SEQ)
-	@echo rawdata SEQ=$(SEQ)
-	-rsync -ahv --bwlimit=8000 $(SDIR)/$(PID)_$(SEQ) $(REM)/GBTRawdata
 	@echo weather
 	-rsync -ahv --bwlimit=8000 $(WDIR)/Coeffs* $(REM)/GBTWeather
+	@echo rawdata SEQ=$(SEQ)
+	-rsync -ahv --bwlimit=8000 $(SDIR)/$(PID)_$(SEQ) $(REM)/GBTRawdata
 
 #  this lengthy IDL based procedure computes the mean/rms/min/max for tsys for a given SEQ
 ## tsys:     make tsys and summary files for SEQ=$SEQ
