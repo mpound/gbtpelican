@@ -106,7 +106,7 @@ def baseline(scanblock:list,subtract:bool, restvalue:Quantity, line: str, plot=F
     for i in range(len(scanblock)):
         print(f"Doing baseline {i} of len(scanblock)")
         tavg.append(scanblock[i].timeaverage(use_wcs=False))
-        print(f"fdnum={i}, exp={tavg[i].meta["EXPOSURE"]}")
+        print(f'fdnum={i}, exp={tavg[i].meta["EXPOSURE"]}')
         tavg[i].rest_value=restvalue
         tavg[i].baseline(degree=2,exclude=[60,100],remove=True)
         #lsrk=tavg[i].with_frame("LSRK")
