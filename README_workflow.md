@@ -2,10 +2,11 @@
 
 ## FastX for VNC
 
-https://ssh.gb.nrao.edu:3443
+      https://ssh.gb.nrao.edu:3443
 
 where you start astrid and cleo.
 
+It helps to maintain the session number for the observation in a file `SEQ`. See below.
 
 ## Data view
 
