@@ -142,8 +142,7 @@ if __name__ == "__main__":
     #parser.add_argument('--baseline',default=False,action='store_true',help='remove baseline')
     # @TODO allow negatives to be "all but -M -N feeds"
     parser.add_argument("--feeds",type=int,nargs='+', action='store',help="list feeds to reduce, e.g. --feeds 0 1 2 3 ", required=True)  
-    parser.add_argument("--file", type=str, default=None, action='store', help='output file for final scanblock')
-    parser.add_argument("--input", type=str, default=None, action='store', help='tabular input file with ')
+    parser.add_argument("--input", type=str, default=None, action='store', help='tabular input file with Project, Line, RestFreq, scans etc.')
     parser.add_argument('--flux',  action="store_true", help='Use Flux(Jy) instead of Ta(K)')
     parser.add_argument("--line",type=str, action='store',help="which line to reduce. One of HCO+, HCN (case insensisitive) ", required=True)
     parser.add_argument("--nchan",type=int, default=151,help="how many channels to keep")
@@ -159,7 +158,7 @@ if __name__ == "__main__":
     kms=u.km/u.s
     pelicancenter=SkyCoord('20:51:08.07 +44:26:35.3',frame='fk5',unit=(u.hr,u.degree))
     
-    table = Table.read(args.file, format='ascii', 
+    table = Table.read(args.input, format='ascii', 
                        converters={'Session':str, 'Restfreq(GHz)':np.double})
     lines=set(table['Line'])
     if args.line.upper() not in lines:
@@ -207,7 +206,6 @@ if __name__ == "__main__":
                 feedcount= feedcount+1
         if args.output is None:
             lp.write(f"pelican_{args.line}_Session{table['Session'][i]}.sdfits", flags=False, overwrite=True)
-            #lp.concat().write(f"pelican_{args.line}_Session{table['Session'][i]}.sdfits",flags=False)
         else:
             lp.write(args.output, flags=False, overwrite=True)
 
