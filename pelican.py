@@ -159,7 +159,7 @@ if __name__ == "__main__":
     pelicancenter=SkyCoord('20:51:08.07 +44:26:35.3',frame='fk5',unit=(u.hr,u.degree))
     
     table = Table.read(args.input, format='ascii', 
-                       converters={'Session':str, 'Restfreq(GHz)':np.double})
+                       converters={'Session':str, 'RestFreq(GHz)':np.double})
     lines=set(table['Line'])
     if args.line.upper() not in lines:
         raise ValueError(f"line must be one of {lines}")
