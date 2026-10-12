@@ -16,7 +16,7 @@ Reduces one spectral line for selected feeds using `dysh` (`GBTFITSLoad`, `ScanB
 
 - Per-session reduction parameters live in a whitespace-delimited table (`input.tab`, `#` comments): Project, Date, Session, Line, RestFreq(GHz), startchan, nchan, baseline order, tau (zenith opacity), and a comma-separated scan list. One row per (session, line). Only rows matching `--line` are processed; each is loaded from a directory named `{Project}_{Session}` (e.g. `AGBT25B_386_03`) relative to the current directory.
 - Per row, per feed: `sdf.getfs(...)` (frequency-switched, `ifnum=0, plnum=0`, channel-sliced, opacity-corrected, units Ta or Jy) is appended to `LineParams.final_sb`. If baseline order >= 0, `baseline()` fits a polynomial to each feed's time-average and subtracts it from the ScanBlock. `LineParams.write` concatenates feed ScanBlocks and writes SDFITS (default `pelican_{LINE}_Session{N}.sdfits`).
-- Known quirks (verify before relying on them): the converter key `'Restfreq(GHz)'` differs in case from the actual column `RestFreq(GHz)`; `--split` and `--nchan` are parsed but unused. Helper functions at the top (`plotbeams`, `ralongmapview`, `pointing_errors`, `specplot`) are for interactive/notebook use and rely on the `pelicancenter` global defined under `__main__`.
+- Known quirks (verify before relying on them):   `--split` and `--nchan` are parsed but unused. Helper functions at the top (`plotbeams`, `ralongmapview`, `pointing_errors`, `specplot`) are for interactive/notebook use and rely on the `pelicancenter` global defined under `__main__`.
 - Requires Python >= 3.10 (uses `str | u.Unit` annotations) and `dysh`.
 
 ## Observing-session housekeeping (Makefile + GBO scripts)
