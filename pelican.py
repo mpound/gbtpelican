@@ -160,7 +160,7 @@ if __name__ == "__main__":
     parser.add_argument("--nchan",type=int, default=151,help="how many channels to keep")
     parser.add_argument('--plot',default=False,action='store_true',help='plot spectra')
     parser.add_argument('--verbose', '-v', default=False, action='store_true', help='verbose mode')
-    #parser.add_argument('--session', default="all", type=str, action='store', help='which session to reduce. Default: all sessions input file')
+    parser.add_argument('--session', default="all", type=str, action='store', help='which session to reduce. Default: all sessions input file')
     parser.add_argument('--split', default=False, action='store_true', help='If true, split sdfits output files into separate feeds')
     parser.add_argument('--output', '-o',action='store', help='File to write to. Default: pelican_{line}_{session}.sdfits')
     args = parser.parse_args()
@@ -181,7 +181,12 @@ if __name__ == "__main__":
         # only do the requested line
         if(line.upper() != args.line.upper()):
             continue
-        filesession = f"{table['Project'][i]}_{table['Session'][i]}"
+        session = table['Session'][i]
+        if (args.session != "all") and args.session != session:
+            if args.verbose:
+                print(f"Skipping session {session}")
+            continue
+        filesession = f"{table['Project'][i]}_{session}"
         sdf = loadsession(filesession)
         startchan = table['startchan'][i]
         zenith_opacity = table['tau'][i]
