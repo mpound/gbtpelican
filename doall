@@ -1,7 +1,12 @@
 #!/bin/csh -f
 # Reduce the data in an embarrassingly parallel way
 
-foreach session (01 03 04)
+foreach session (01)
     foreach line ("HCO+" "HCN")
-        (./pelican.py --line $line --input input.tab --feeds 0 1 3 4 5 6 7 8 9 10 11 12 13 14 --session $session  --flux jy >& $line.$session.log) &
+        (./pelican.py --line $line --input input.tab --feeds 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 --session $session  --flux jy >& $line.$session.log) &
+end
+foreach session (03 04)
+    foreach line ("HCO+" "HCN")
+# feed 1 beam 2 bad in sessions 03 and 04
+        (./pelican.py --line $line --input input.tab --feeds 0 2 3 4 5 6 7 8 9 10 11 12 13 14 15 --session $session  --flux jy >& $line.$session.log) &
 end
