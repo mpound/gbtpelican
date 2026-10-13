@@ -89,29 +89,41 @@ class BaselineAvg(NamedTuple):
     model: Model = None
     line: str = None
     
-def baseline(scanblock:list,degree:int, subtract:bool, restvalue:Quantity, exclude=[[0,5],[60,100]], plot=False):#  -> BaselineAvg:
+def baseline_one(sb, degree:int, subtract:bool, restvalue:Quantity, exclude=[[0,5],[60,100]]):
+    """Fit a baseline to the time average of one feed's ScanBlock, optionally
+    subtracting it from the ScanBlock. Does no plotting.
+    Returns the baseline-fitted time average."""
+    tavg = sb.timeaverage(use_wcs=False)
+    tavg.rest_value=restvalue
+    tavg.baseline(degree=degree,exclude=exclude,remove=True)
+    if subtract:
+        sb.undo_baseline()
+        sb.subtract_baseline(tavg.baseline_model,tol=1E5)
+    return tavg
+
+def baseline(scanblock:list,degree:int, subtract:bool, restvalue:Quantity, exclude=[[0,5],[60,100]], plot=False):
     # scanblock i contains all integrations for all scans of feed i
     # We want to compute the average spectrum for all integrations so we can find the good baseline.
-    
-    tavg=[]  # we currently do nothing with this array
-    
+    tavg=[]
     for i in range(len(scanblock)):
-        print(f"Doing baseline {i} of len(scanblock)")
-        tavg.append(scanblock[i].timeaverage(use_wcs=False))
+        print(f"Doing baseline {i} of {len(scanblock)}")
+        tavg.append(baseline_one(scanblock[i],degree,subtract,restvalue,exclude))
         print(f'fdnum={i}, exp={tavg[i].meta["EXPOSURE"]}')
-        tavg[i].rest_value=restvalue
-        tavg[i].baseline(degree=degree,exclude=exclude,remove=True)
-        #lsrk=tavg[i].with_frame("LSRK")
-        # bad channel at 30.25 km/s
-        #lsrk.baseline(degree=2,include=[(-20*kms,-6*kms),(3*kms,20*kms),(30*kms,31*kms)],remove=True)
         if plot:
-            #lsrk.plot(ymin=-1,ymax=1,yaxis_unit="K")
             tavg[i].with_frame('LSRK').plot(ymin=-2,ymax=2,yaxis_unit="mK",xaxis_unit='km/s')
-        if subtract:
-            scanblock[i].undo_baseline()
-            scanblock[i].subtract_baseline(tavg[i].baseline_model,tol=1E5)
-        #return BaselineAvg(timeaverage=tavg,  model=lsrk.baseline_model, line=line)
-    
+    return tavg
+
+def reduce_feed(sdf, fdnum:int, scans, units:str, zenith_opacity, channels, baseorder:int, restvalue:Quantity):
+    """Calibrate (and optionally baseline-subtract) one feed. Returns (ScanBlock, tavg or None)."""
+    print(f"Doing feed {fdnum} scans={scans} channels={channels}")
+    sb = sdf.getfs(scan=scans,ifnum=0,plnum=0,fdnum=fdnum, units=units, zenith_opacity=zenith_opacity,
+                   channel=channels,shift_method='interpolate')
+    tavg = None
+    if baseorder >= 0:
+        tavg = baseline_one(sb, baseorder, True, restvalue)
+        print(f'fdnum={fdnum}, exp={tavg.meta["EXPOSURE"]}')
+    return sb, tavg
+
 class LineParams:
     """Parameters for each Line map/reduction"""
     def __init__(self, line:str, restfreq:Quantity, sdf:GBTFITSLoad, startchan:int = 1, nchan: int = 16384,scans=[]):
@@ -188,14 +200,14 @@ if __name__ == "__main__":
             units="jy"
         else:
             units="ta"
-        for fdnum in args.feeds:
-            print(f"Doing {line} feed {fdnum} scans={lp.scans} channels={lp.channels}")
-            _sb = sdf.getfs(scan=scans,ifnum=0,plnum=0,fdnum=fdnum, units=units, zenith_opacity=zenith_opacity,
-                            channel=lp.channels,shift_method='interpolate')
-
+        feedargs = (scans, units, zenith_opacity, lp.channels, baseorder, lp.restfreq)
+        results = [reduce_feed(sdf, fd, *feedargs) for fd in args.feeds]
+        for _sb, _ in results:
             lp.final_sb.append(_sb)
-        if dobase:
-            baseline(lp.final_sb,degree=baseorder, subtract=True, restvalue=lp.restfreq,plot=doplot)
+        if doplot:
+            for _, tavg in results:
+                if tavg is not None:
+                    tavg.with_frame('LSRK').plot(ymin=-2,ymax=2,yaxis_unit="mK",xaxis_unit='km/s')
         if doplot:
             scanplots = [x.plot(vmin=-0.005,vmax=0.005) for x in lp.final_sb]
         if False:
