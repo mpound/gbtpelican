@@ -202,7 +202,7 @@ if __name__ == "__main__":
         print(f"Doing feed={args.feeds}")
         feedcount = 0
         if args.flux:
-            units="jy"
+            units="flux"
         else:
             units="ta"
         feedargs = (scans, units, zenith_opacity, lp.channels, baseorder, lp.restfreq)
