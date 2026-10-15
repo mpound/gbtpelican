@@ -1,4 +1,4 @@
-#    various target to aid in installing GBT-EDGE
+#	 various target to aid in installing GBT-EDGE
 #
 SHELL = /bin/bash
 
@@ -45,22 +45,22 @@ URL9  = https://github.com/teuben/nemo
 
 .PHONY:  help install build
 
-## help:     This Help
+## help:	 This Help
 help : Makefile
 	@sed -n 's/^##//p' $<
 
-## git:      make the needed git repos (GIT_DIRS)
+## git:		 make the needed git repos (GIT_DIRS)
 git:  $(GIT_DIRS)
 	@echo Last git: `date` >> git.log
 
-## pull:     update (git pull) the used git repos
+## pull:	 update (git pull) the used git repos
 pull:
 	@echo -n "lmtoy: "; git pull
 	-@for dir in $(GIT_DIRS); do\
 	(echo -n "$$dir: " ;cd $$dir; git pull); done
 	@echo Last pull: `date` >> git.log
 
-## status:   query status of the used git repos
+## status:	 query status of the used git repos
 status:
 	@echo -n "lmtoy: "; git status -uno
 	-@for dir in $(GIT_DIRS); do\
@@ -91,7 +91,7 @@ gbtgridder_gbo:
 	git clone $(URL7) gbtgridder_gbo
 
 gbtgridder:
-	# git clone -b release_3.0  $(URL7)
+	# git clone -b release_3.0	$(URL7)
 	git clone -b python3 $(URL7a)
 	(cd gbtgridder; git remote add upstream $(URL7))  
 
@@ -101,7 +101,7 @@ spectral-cube:
 pel_env:
 	python3 -m venv pel_env
 
-install_anaconda3:
+install_anaconda:
 	./install_anaconda3
 
 
@@ -112,7 +112,7 @@ install_gbtpipe:  gbtpipe pel_env
 	pip3 install --upgrade pip;\
 	pip3 install -e .)
 
-install_degas:  degas pel_env
+install_degas:	degas pel_env
 	(cd degas;\
 	source ../pel_env/bin/activate;\
 	pip3 install --upgrade pip;\
@@ -129,7 +129,7 @@ install_maskmoment:  maskmoment pel_env
 #  usually using the rsync target here, and running it from GBO
 #  this also updates the weather database
 
-## sdfits:   show sessions in /home/sdfits for this project
+## sdfits:	 show sessions in /home/sdfits for this project
 sdfits:
 	@ls -dl /home/sdfits/$(PID)_*
 
@@ -144,7 +144,7 @@ rawdata:
 	  ln -s $(SDIR) rawdata; \
 	else \
 	  echo "Not at GBO; Provide your own symlink/directory named 'rawdata'"; \
-          echo "or get a precomputed dataset via: make NGC0001"; \
+		  echo "or get a precomputed dataset via: make NGC0001"; \
 	  echo "SDIR=$(SDIR)"; \
 	fi
 
@@ -167,12 +167,12 @@ other:
 	pip install radio_beam
 	pip install spectral_cube
 
-#  rsync:   only useful if you are at GBO and want to rsync to your offline location
+#  rsync:	only useful if you are at GBO and want to rsync to your offline location
 #  if you want to fully reduce the data off-line
 SEQ = 01
 -include SEQ
 REM = teuben@lma.astro.umd.edu:/n/lma1/teuben/
-## rsync:    rsync to REM=$REM and SEQ=$SEQ
+## rsync:	 rsync to REM=$REM and SEQ=$SEQ
 rsync:
 	@echo rsync to REM=$(REM) and SEQ=$(SEQ)
 	du -sh $(SDIR)/$(PID)_$(SEQ)
@@ -182,19 +182,19 @@ rsync:
 	-rsync -ahv --bwlimit=8000 $(SDIR)/$(PID)_$(SEQ) $(REM)/GBTRawdata
 
 #  this lengthy IDL based procedure computes the mean/rms/min/max for tsys for a given SEQ
-## tsys:     make tsys and summary files for SEQ=$SEQ
+## tsys:	 make tsys and summary files for SEQ=$SEQ
 tsys:
 	./tsys.py $(PID)_$(SEQ)
 	mv pro/$(PID)_$(SEQ).tsys tsyslogs
-	@echo git add           tsyslogs/$(PID)_$(SEQ).tsys
+	@echo git add			tsyslogs/$(PID)_$(SEQ).tsys
 	@echo git commit -m new tsyslogs/$(PID)_$(SEQ).tsys
 	mv pro/$(PID)_$(SEQ).summary summarylogs
-	@echo git add           summarylogs/$(PID)_$(SEQ).summary
+	@echo git add			summarylogs/$(PID)_$(SEQ).summary
 	@echo git commit -m new summarylogs/$(PID)_$(SEQ).summary
 
-## astrid:   make astridlogs for SEQ=$SEQ
+## astrid:	 make astridlogs for SEQ=$SEQ
 astrid:
 	(cd astridlogs; getastridlog $(PID)_$(SEQ))
-	@echo git add           astridlogs/$(PID)_$(SEQ)_log.txt
+	@echo git add			astridlogs/$(PID)_$(SEQ)_log.txt
 	@echo git commit -m new astridlogs/$(PID)_$(SEQ)_log.txt
 

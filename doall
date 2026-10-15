@@ -1,11 +1,11 @@
 #!/bin/csh -f
 # Reduce the data in an embarrassingly parallel way
 
-#foreach session (01)
-#    foreach line ("HCO+" "HCN")
-#         echo "Doing line=$line session=$session..."
-#        (./pelican.py --line $line --input input.tab --feeds 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 --session $session  --flux >& $line.$session.log) &
-#end
+foreach session (01)
+    foreach line ("HCO+" "HCN")
+         echo "Doing line=$line session=$session..."
+        (./pelican.py --line $line --input input.tab --feeds 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 --session $session  --flux >& $line.$session.log) &
+end
 foreach session (04)
     foreach line ("HCO+" "HCN")
          echo "Doing line=$line session=$session..."
