@@ -226,3 +226,4 @@ if __name__ == "__main__":
         else:
             lp.write(args.output, flags=False, overwrite=True)
 
+# ./gbtgridder/src/gbtgridder --scans 60,61,62,63,64,65,66,77,78 --restfreq 97980.96 --mapcenter 312.783625 44.44313889 --output pelican_CS_05 pelican_CS_Session05.sdfits
