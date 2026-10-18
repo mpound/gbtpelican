@@ -40,6 +40,7 @@ URL5  = https://github.com/tonywong94/edge_pydb
 URL6  = https://github.com/richteague/bettermoments
 URL7  = https://github.com/GreenBankObservatory/gbtgridder
 URL7a = https://github.com/teuben/gbtgridder
+URL7b = https://github.com/GreenBankObservatory/dysh # we need the latest version with the FS fix
 URL8  = https://github.com/radio-astro-tools/spectral-cube/
 URL9  = https://github.com/teuben/nemo
 
@@ -86,6 +87,10 @@ degas_pjt:
 
 maskmoment:
 	git clone $(URL4a)
+
+dysh:
+	git clone $(URL7b) dysh
+	(cd dysh; pip install -e .)
 
 gbtgridder_gbo:
 	git clone $(URL7) gbtgridder_gbo
@@ -163,7 +168,6 @@ weather0:
 
 
 other:
-	pip install dysh
 	pip install radio_beam
 	pip install spectral_cube
 
