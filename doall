@@ -1,15 +1,50 @@
-#!/bin/csh -f
+#!/bin/bash
 # Reduce the data in an embarrassingly parallel way
 
-foreach session (01 03 04)
-    foreach line ("HCO+" "HCN")
-         echo "Doing line=$line session=$session..."
-        (./pelican.py --line $line --input input.tab --session $session  --flux >& $line.$session.log) &
-    end
-end
-foreach session (05)
-         line="CS"
-         echo "Doing line=$line session=$session..."
-        (./pelican.py --line $line --input input.tab --session $session  --flux >& $line.$session.log) &
-end
+usage() {
+    echo "Usage: $0 [-g|--grid] [-m|--moment] [-n|--dry-run] [-v|--verbose] [-h|--help]"
+    echo "  -g, --grid     run gbtgridder on the output (not yet implemented)"
+    echo "  -m, --moment   run maskmoment on the gridded cubes (not yet implemented)"
+    echo "  -n, --dry-run  only echo what would be done"
+    echo "  -v, --verbose  print each command before invoking it"
+}
 
+# Run a reduction in the background, logging to $1.$2.log
+reduce() {
+    local line=$1 session=$2
+    local cmd=(./pelican.py --line "$line" --input input.tab --session "$session" --flux)
+    echo "Doing line=$line session=$session..."
+    if [[ $dryrun -eq 1 ]]; then
+        echo "would run: ${cmd[*]} >& $line.$session.log &"
+        return
+    fi
+    [[ $verbose -eq 1 ]] && echo "${cmd[*]} >& $line.$session.log &"
+    "${cmd[@]}" >& "$line.$session.log" &
+}
+
+grid=0
+moment=0
+dryrun=0
+verbose=0
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -g|--grid)   grid=1 ;;
+        -m|--moment) moment=1 ;;
+        -n|--dry-run) dryrun=1 ;;
+        -v|--verbose) verbose=1 ;;
+        -h|--help)   usage; exit 0 ;;
+        *) echo "Unknown argument: $1" >&2; usage >&2; exit 1 ;;
+    esac
+    shift
+done
+echo "grid=$grid moment=$moment dryrun=$dryrun verbose=$verbose"
+
+for session in 01 03 04; do
+    for line in "HCO+" "HCN"; do
+        reduce "$line" "$session"
+    done
+done
+reduce "CS" "05"
+
+# Wait for all the background reductions to finish
+wait
