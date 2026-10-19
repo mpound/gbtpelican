@@ -209,3 +209,8 @@ __marimo__/
 # Add-on git clones
 /gbtgridder/
 /maskmoment/
+
+# Local working files and large outputs
+.virtual_documents/
+*.fits
+*.sdfits
