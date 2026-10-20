@@ -48,3 +48,22 @@ this command will take a while. It will create both the tsys and summary files. 
 
 will be much quicker.
 
+
+## Reduction, gridding and moments (`doall`)
+
+`./doall` reduces every session of each line in parallel with `pelican.py`. Each line (HCO+, HCN, CS) is
+its own pipeline, and the pipelines run concurrently:
+
+      ./doall [-g] [-m] [--grid-args "..."] [--moment-args "..."] [-n] [-v]
+
+- `-g/--grid`: after all sessions of a line are reduced, one `gbtgridder` call grids all of that line's
+  SDFITS files into `pelican_{LINE}_cube.fits` etc. Options come from `grid.opts`, then `--grid-args`.
+  `--restfreq` is taken from `input.tab`. Do not pass `--scans`: scan numbers overlap between sessions and
+  `pelican.py` has already selected the scans.
+- `-m/--moment`: after that line's gridder finishes, `domoment.py` (a wrapper for the `maskmoment`
+  clone) makes moment maps from the cube only (baselines are already removed). Options come from
+  `moment.opts`, then `--moment-args`. Without `-g`, the cube must already exist.
+- `-n/--dry-run` echoes what would be done; `-v/--verbose` prints each command before running it.
+- Logs: `{LINE}.{SESSION}.log`, `{LINE}.grid.log`, `{LINE}.moment.log`.
+
+`gbtgridder/` and `maskmoment/` are add-on git clones and are git-ignored.
