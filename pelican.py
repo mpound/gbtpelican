@@ -11,7 +11,7 @@ from typing import NamedTuple
 from astropy.units.quantity import Quantity
 import argparse
 import sys
-#import os
+import os
 from astropy.table import Table
 
 def xyplot(xdeg:np.ndarray,ydeg:np.ndarray,title:str,unit:str|u.Unit):
@@ -76,6 +76,13 @@ def loadsession(file,loadAll = False):
         print(f"loading all of {file}")
         _sdf.load_all()
     return _sdf
+
+def datapath(name:str) -> str:
+    """Directory for a session: $SDFITS_DATA/name if it exists, else name relative to the cwd."""
+    root = os.environ.get("SDFITS_DATA")
+    if root and os.path.isdir(os.path.join(root, name)):
+        return os.path.join(root, name)
+    return name
 
 def load(file,loadAll = True):
     _sdf = GBTFITSLoad(file)
@@ -204,7 +211,7 @@ if __name__ == "__main__":
                 print(f"Skipping session {session}")
             continue
         filesession = f"{table['Project'][i]}_{session}"
-        sdf = loadsession(filesession)
+        sdf = loadsession(datapath(filesession))
         startchan = table['startchan'][i]
         zenith_opacity = table['tau'][i]
         nchan = table['nchan'][i]
