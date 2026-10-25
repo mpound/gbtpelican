@@ -1,14 +1,143 @@
-#!/bin/csh -f
-# Reduce the data in an embarrassingly parallel way
+#!/bin/bash
+# Reduce the data in an embarrassingly parallel way.
+# Each line (molecule) is its own pipeline, and the pipelines run concurrently:
+#   reduce each session (parallel) -> one gbtgridder call (-g) -> one maskmoment call (-m)
 
-foreach session (01)
-    foreach line ("HCO+" "HCN")
-         echo "Doing line=$line session=$session..."
-        (./pelican.py --line $line --input input.tab --feeds 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 --session $session  --flux >& $line.$session.log) &
-end
-foreach session (04)
-    foreach line ("HCO+" "HCN")
-         echo "Doing line=$line session=$session..."
-# feed 1 beam 2 bad in sessions 03 and 04
-        (./pelican.py --line $line --input input.tab --feeds 0 2 3 4 5 6 7 8 9 10 11 12 13 14 15 --session $session  --flux >& $line.$session.log) &
-end
+usage() {
+    echo "Usage: $0 [-g|--grid] [-m|--moment] [--lines LIST] [--grid-args \"...\"] [--moment-args \"...\"]"
+    echo "          [-n|--dry-run] [-v|--verbose] [-h|--help]"
+    echo "  -g, --grid           grid all sessions of each line with gbtgridder (options: grid.opts)"
+    echo "  -m, --moment         run maskmoment on each line's gridded cube (options: moment.opts)"
+    echo "                       Without -g, the cube pelican_{LINE}_cube.fits must already exist."
+    echo "      --lines LIST     only do these lines, comma or space separated, e.g. HCN,CS (default: all)"
+    echo "      --grid-args S    extra gbtgridder options, appended after grid.opts"
+    echo "      --moment-args S  extra domoment.py options, appended after moment.opts"
+    echo "  -n, --dry-run        only echo what would be done"
+    echo "  -v, --verbose        print each command before invoking it"
+}
+
+INPUT=input.tab
+GRIDDER=./gbtgridder/src/gbtgridder
+
+# Sessions to reduce for each line.
+declare -A SESSIONS=( ["HCO+"]="01 03 04" ["HCN"]="01 03 04" ["CS"]="05" )
+ALLLINES=("HCO+" "HCN" "CS")
+LINES=("${ALLLINES[@]}")
+
+grid=0
+moment=0
+dryrun=0
+verbose=0
+gridargs=""
+lines_arg=""
+momentargs=""
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -g|--grid)      grid=1 ;;
+        -m|--moment)    moment=1 ;;
+        --lines)        lines_arg="$2"; shift ;;
+        --grid-args)    gridargs="$2"; shift ;;
+        --moment-args)  momentargs="$2"; shift ;;
+        -n|--dry-run)   dryrun=1 ;;
+        -v|--verbose)   verbose=1 ;;
+        -h|--help)      usage; exit 0 ;;
+        *) echo "Unknown argument: $1" >&2; usage >&2; exit 1 ;;
+    esac
+    shift
+done
+# --lines: restrict (and validate) the lines to do, in the order given.
+if [[ -n $lines_arg ]]; then
+    LINES=()
+    for want in ${lines_arg//,/ }; do
+        found=0
+        for l in "${ALLLINES[@]}"; do
+            if [[ ${l^^} == "${want^^}" ]]; then LINES+=("$l"); found=1; fi
+        done
+        [[ $found -eq 1 ]] || { echo "Unknown line: $want (known: ${ALLLINES[*]})" >&2; exit 1; }
+    done
+fi
+echo "lines=${LINES[*]}"
+echo "grid=$grid moment=$moment dryrun=$dryrun verbose=$verbose"
+
+# Print the command (if verbose or dry run); run it unless dry run.
+# Usage: run LOGFILE cmd args...   (output goes to LOGFILE)
+run() {
+    local log=$1; shift
+    if [[ $dryrun -eq 1 ]]; then
+        echo "would run: $* >& $log"
+        return 0
+    fi
+    [[ $verbose -eq 1 ]] && echo "$* >& $log"
+    "$@" >& "$log"
+}
+
+# Read an options file into the array named $2: comments stripped, whitespace-split.
+read_opts() {
+    local -n out=$2
+    read -ra out < <(sed 's/#.*//' "$1" | tr '\n' ' ')
+}
+
+# Rest frequency of a line in MHz, from the first matching row of input.tab (GHz there).
+restfreq_mhz() {
+    awk -v l="$1" '$1 !~ /^#/ && toupper($4) == toupper(l) { printf "%.9g\n", $5*1000; exit }' "$INPUT"
+}
+
+pipeline() {
+    local line=$1
+    local sessions=(${SESSIONS[$line]})
+    local pids=() fail=0 s p
+
+    # 1. Reduce every session of this line in parallel.
+    for s in "${sessions[@]}"; do
+        echo "Doing line=$line session=$s..."
+        if [[ $dryrun -eq 1 ]]; then
+            run "$line.$s.log" ./pelican.py --line "$line" --input "$INPUT" --session "$s" --flux
+        else
+            run "$line.$s.log" ./pelican.py --line "$line" --input "$INPUT" --session "$s" --flux &
+            pids+=($!)
+        fi
+    done
+    for p in "${pids[@]}"; do
+        wait "$p" || { echo "ERROR: a reduction of $line failed; see $line.*.log" >&2; fail=1; }
+    done
+    [[ $fail -eq 1 ]] && return 1
+
+    # 2. One gridder call with the SDFITS from all sessions of this line.
+    #    NOTE: do not pass --scans. Scan numbers overlap between sessions, and
+    #    pelican.py has already selected the scans when writing each SDFITS file.
+    if [[ $grid -eq 1 ]]; then
+        local rf files=() gopts extra=()
+        rf=$(restfreq_mhz "$line")
+        [[ -n $rf ]] || { echo "ERROR: no rest frequency for $line in $INPUT" >&2; return 1; }
+        for s in "${sessions[@]}"; do files+=("pelican_${line}_Session${s}.sdfits"); done
+        read_opts grid.opts gopts
+        read -ra extra <<< "$gridargs"
+        echo "Gridding line=$line..."
+        run "$line.grid.log" "$GRIDDER" "${gopts[@]}" "${extra[@]}" \
+            --restfreq "$rf" --output "pelican_${line}" "${files[@]}" || { echo "ERROR: gridding $line failed; see $line.grid.log" >&2; return 1; }
+    fi
+
+    # 3. One maskmoment call on this line's cube (not the line cube: baselines are already removed).
+    if [[ $moment -eq 1 ]]; then
+        local cube="pelican_${line}_cube.fits" mopts extra=()
+        if [[ $dryrun -eq 0 && ! -f $cube ]]; then
+            echo "ERROR: $cube not found; run with -g first" >&2
+            return 1
+        fi
+        read_opts moment.opts mopts
+        read -ra extra <<< "$momentargs"
+        echo "Making moments line=$line..."
+        run "$line.moment.log" ./domoment.py "${mopts[@]}" "${extra[@]}" "$cube" || { echo "ERROR: moments for $line failed; see $line.moment.log" >&2; return 1; }
+    fi
+}
+
+for line in "${LINES[@]}"; do
+    if [[ $dryrun -eq 1 ]]; then
+        pipeline "$line"      # sequential, so the dry-run output is readable
+    else
+        pipeline "$line" &
+    fi
+done
+
+# Wait for all the pipelines to finish
+wait

@@ -1,0 +1,6 @@
+# Default gbtgridder options for doall -g (one option per line or space separated; # comments).
+# doall supplies the SDFITS files, --restfreq (from input.tab) and --output.
+# Do NOT pass --scans here: scan numbers overlap between sessions, and pelican.py
+# has already selected the scans when writing each SDFITS file.
+--mapcenter 312.783625 44.44313889
+--clobber

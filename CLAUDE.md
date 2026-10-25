@@ -19,6 +19,10 @@ Reduces one spectral line for selected feeds using `dysh` (`GBTFITSLoad`, `ScanB
 - Known quirks (verify before relying on them):   `--split` and `--nchan` are parsed but unused. Helper functions at the top (`plotbeams`, `ralongmapview`, `pointing_errors`, `specplot`) are for interactive/notebook use and rely on the `pelicancenter` global defined under `__main__`.
 - Requires Python >= 3.10 (uses `str | u.Unit` annotations) and `dysh`.
 
+## Batch driver: `doall`
+
+Bash script. Per line (HCO+, HCN, CS) runs a pipeline, all lines concurrently: `pelican.py` per session in parallel -> (`-g`) one `gbtgridder` call over all that line's SDFITS, options from `grid.opts` + `--grid-args`, restfreq from `input.tab`, never `--scans` (scan numbers overlap across sessions) -> (`-m`) `domoment.py` (argparse wrapper around the `maskmoment` clone) on `pelican_{LINE}_cube.fits` only, options from `moment.opts` + `--moment-args`. Also `--dry-run`, `--verbose`. `gbtgridder/` and `maskmoment/` are git-ignored add-on clones.
+
 ## Observing-session housekeeping (Makefile + GBO scripts)
 
 The Makefile is largely inherited from GBT-EDGE; many targets (`bench*`, `stats`, `all`, `NGC0001`, `gbtpipe`/`degas` installs) are unused leftovers. The ones that matter here (`make help` lists the `##` ones), steered by `SEQ` (session number, default from an optional `SEQ` file) and `PID=AGBT25B_386`:

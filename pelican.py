@@ -11,7 +11,7 @@ from typing import NamedTuple
 from astropy.units.quantity import Quantity
 import argparse
 import sys
-#import os
+import os
 from astropy.table import Table
 
 def xyplot(xdeg:np.ndarray,ydeg:np.ndarray,title:str,unit:str|u.Unit):
@@ -77,6 +77,13 @@ def loadsession(file,loadAll = False):
         _sdf.load_all()
     return _sdf
 
+def datapath(name:str) -> str:
+    """Directory for a session: $SDFITS_DATA/name if it exists, else name relative to the cwd."""
+    root = os.environ.get("SDFITS_DATA")
+    if root and os.path.isdir(os.path.join(root, name)):
+        return os.path.join(root, name)
+    return name
+
 def load(file,loadAll = True):
     _sdf = GBTFITSLoad(file)
     if loadAll:
@@ -124,6 +131,20 @@ def reduce_feed(sdf, fdnum:int, scans, units:str, zenith_opacity, channels, base
         print(f'fdnum={fdnum}, exp={tavg.meta["EXPOSURE"]}')
     return sb, tavg
 
+NFEEDS = 16
+
+def resolve_feeds(feeds, nfeeds:int = NFEEDS):
+    """Turn a feed list into the feeds to reduce. A leading minus sign means
+    "don't use this feed" (-N excludes feed N; -0 excludes feed 0). Entries
+    are parsed as strings because int("-0") would lose the sign. If there are
+    no positive entries, start from all feeds.
+    e.g. ['-1','-6'] -> all but 1 and 6; ['0','1','2','-1'] -> [0,2];
+    ['-0'] -> all but 0."""
+    toks = [str(f).strip() for f in feeds]
+    exclude = {int(t[1:]) for t in toks if t.startswith('-')}
+    include = [int(t) for t in toks if not t.startswith('-')] or list(range(nfeeds))
+    return [f for f in dict.fromkeys(include) if f not in exclude]
+
 class LineParams:
     """Parameters for each Line map/reduction"""
     def __init__(self, line:str, restfreq:Quantity, sdf:GBTFITSLoad, startchan:int = 1, nchan: int = 16384,scans=[]):
@@ -153,7 +174,10 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog=sys.argv[0])
     #parser.add_argument('--baseline',default=False,action='store_true',help='remove baseline')
     # @TODO allow negatives to be "all but -M -N feeds"
-    parser.add_argument("--feeds",type=int,nargs='+', action='store',help="list feeds to reduce, e.g. --feeds 0 1 2 3 ", required=True)  
+    parser.add_argument("--feeds",type=str,nargs='+', action='store',
+                        help="list feeds to reduce, e.g. --feeds 0 1 2 3. Negative numbers mean don't use that feed (-0 excludes feed 0); "
+                             "with only negatives, all feeds except those, e.g. --feeds -1 -6. "
+                             "Default: the feeds column of the input file")  
     parser.add_argument("--input", type=str, default=None, action='store', help='tabular input file with Project, Line, RestFreq, scans etc.')
     parser.add_argument('--flux',  action="store_true", help='Use Flux(Jy) instead of Ta(K)')
     parser.add_argument("--line",type=str, action='store',help="which line to reduce. One of HCO+, HCN (case insensisitive) ", required=True)
@@ -171,7 +195,7 @@ if __name__ == "__main__":
     pelicancenter=SkyCoord('20:51:08.07 +44:26:35.3',frame='fk5',unit=(u.hr,u.degree))
     
     table = Table.read(args.input, format='ascii', 
-                       converters={'Session':str, 'RestFreq(GHz)':np.double})
+                       converters={'Session':str, 'feeds':str, 'RestFreq(GHz)':np.double})
     lines=set(table['Line'])
     if args.line.upper() not in lines:
         raise ValueError(f"line must be one of {lines}")
@@ -187,7 +211,7 @@ if __name__ == "__main__":
                 print(f"Skipping session {session}")
             continue
         filesession = f"{table['Project'][i]}_{session}"
-        sdf = loadsession(filesession)
+        sdf = loadsession(datapath(filesession))
         startchan = table['startchan'][i]
         zenith_opacity = table['tau'][i]
         nchan = table['nchan'][i]
@@ -199,14 +223,18 @@ if __name__ == "__main__":
         doplot=args.plot
         dobase  = (baseorder >=0 )
         lsrk = []
-        print(f"Doing feed={args.feeds}")
+        if args.feeds is not None:
+            feeds = resolve_feeds(args.feeds)
+        else:
+            feeds = resolve_feeds(table['feeds'][i].split(','))
+        print(f"Doing feed={feeds}")
         feedcount = 0
         if args.flux:
             units="flux"
         else:
             units="ta"
         feedargs = (scans, units, zenith_opacity, lp.channels, baseorder, lp.restfreq)
-        results = [reduce_feed(sdf, fd, *feedargs) for fd in args.feeds]
+        results = [reduce_feed(sdf, fd, *feedargs) for fd in feeds]
         for _sb, _ in results:
             lp.final_sb.append(_sb)
         if doplot:
@@ -216,7 +244,7 @@ if __name__ == "__main__":
         if doplot:
             scanplots = [x.plot(vmin=-0.005,vmax=0.005) for x in lp.final_sb]
         if False:
-            for fdnum in args.feeds:          
+            for fdnum in feeds:          
                 _x = lp.final_sb[feedcount].timeaverage()
                 _x.rest_value=lp.restfreq
                 lsrk.append(_x.with_frame('LSRK'))
@@ -226,3 +254,4 @@ if __name__ == "__main__":
         else:
             lp.write(args.output, flags=False, overwrite=True)
 
+# ./gbtgridder/src/gbtgridder --scans 60,61,62,63,64,65,66,77,78 --restfreq 97980.96 --mapcenter 312.783625 44.44313889 --output pelican_CS_05 pelican_CS_Session05.sdfits

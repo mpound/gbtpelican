@@ -1,0 +1,4 @@
+# Default domoment.py (maskmoment) options for doall -m (# comments allowed).
+# doall supplies the cube, pelican_{LINE}_cube.fits.
+--snr_hi 4
+--snr_lo 2

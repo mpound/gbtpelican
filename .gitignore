@@ -205,3 +205,12 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Add-on git clones
+/gbtgridder/
+/maskmoment/
+
+# Local working files and large outputs
+.virtual_documents/
+*.fits
+*.sdfits
