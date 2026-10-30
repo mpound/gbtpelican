@@ -73,6 +73,7 @@ for project in sys.argv[1:]:
     os.system('gbtidl do2.pro > do2.log')
 
 
+
     print("### parsing pro/do2.log to find the tsys lines for the %d VANES" % nvanes)
     fp = open("do2.log")
     lines = fp.readlines()
@@ -101,6 +102,17 @@ for project in sys.argv[1:]:
     for t in tsys:
         fp.write(t)
     fp.close()
+
+    print("### writing pro/do3.pro")
+    fp = open('do3.pro','w')
+    fp.write('offline,"%s"\n' % project)
+    for v in vanes:
+        fp.write('vanecal3,%s\n' % v)
+    fp.write('exit\n')
+    fp.close()
+
+    print("### gbtidl do3.pro > do3.log")
+    os.system('gbtidl do3.pro > do3.log')
 
 
 print("All done!")

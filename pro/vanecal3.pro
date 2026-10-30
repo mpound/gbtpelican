@@ -1,4 +1,4 @@
-pro vanecal,scan1,sky=sky, ifnum=ifnum,maint=maint,nfd=nfd
+pro vanecal3,scan1,sky=sky, ifnum=ifnum,maint=maint,nfd=nfd
 ;
 ;;Computes Tsys values for Argus beams for ifnum 
 ;
@@ -100,6 +100,5 @@ print, FORMAT='(A19, F8.2, F8.2, F8.2)', 'Tcal, Twarm, tatm: ', tcal, twarm, tat
 print
 return
 end
-
 
 
