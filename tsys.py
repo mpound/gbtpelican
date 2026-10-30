@@ -111,8 +111,9 @@ for project in sys.argv[1:]:
     fp.write('exit\n')
     fp.close()
 
-    print("### gbtidl do3.pro > do3.log")
-    os.system('gbtidl do3.pro > do3.log')
+    outcmd = f"gbtidl do3.pro> do3_{project}.log"
+    print(f"### {outcmd}")
+    os.system(outcmd)
 
 
 print("All done!")
