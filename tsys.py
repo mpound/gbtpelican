@@ -36,8 +36,8 @@ parser.add_argument("--beams", action=argparse.BooleanOptionalAction, default=Tr
                     help="run vanecal for per-beam Tsys (default: %(default)s)")
 parser.add_argument("--vc3", action=argparse.BooleanOptionalAction, default=False,
                     help="run vanecal3 (default: %(default)s)")
-parser.add_argument("--freeze", action=argparse.BooleanOptionalAction, default=True,
-                    help="issue 'freeze' in the GBTIDL scripts (default: %(default)s)")
+parser.add_argument("--freeze", action=argparse.BooleanOptionalAction, default=False,
+                    help="issue 'freeze' in the GBTIDL scripts to stop plotter from updating (default: %(default)s)")
 args = parser.parse_args()
 
 dotsys = args.tsys
@@ -138,6 +138,7 @@ for project in args.projects:
         print(f"### {outcmd}")
         os.system(outcmd)
 
+#@TODO parse this to get statistics on beams.
     if dobeams:
         print("### writing pro/dobeams.pro")
         fp = open('dobeams.pro','w')
