@@ -74,7 +74,7 @@ def parse_beams(logfile):
 
 def beam_table(projects, factor, tmin, tmax):
     """Print, per session, the beams exceeding factor * scan median and how often."""
-    print("# Session           Feed Beam  Nbad/Nscan  Frac  med(Tsys)_bad[K]")
+    print("# Session           Feed Beam  Nbad/Nscan  Frac  med(Tsys)_bad[K]  med(Tsys)_good[K]")
     for project in projects:
         logfile = "dobeams_%s.log" % project
         if not os.path.exists(logfile):
@@ -88,15 +88,19 @@ def beam_table(projects, factor, tmin, tmax):
             if all(math.isfinite(t) for t in vals) and tmin <= med <= tmax:
                 good[scan] = (beams, med)
         print("# %s: %d scans used, %d rejected" % (project, len(good), len(scans) - len(good)))
-        bad = {}
+        bad = {}      # feed -> Tsys in the scans where it was bad
+        ref = {}      # feed -> median of the unflagged beams in those same scans
         for scan, (beams, med) in good.items():
-            for feed, t in beams:
-                if t > factor * med or t < tmin:
-                    bad.setdefault(feed, []).append(t)
+            flagged = {f for f, t in beams if t > factor * med or t < tmin}
+            okmed = statistics.median(t for f, t in beams if f not in flagged)
+            for feed in flagged:
+                bad.setdefault(feed, []).append(dict(beams)[feed])
+                ref.setdefault(feed, []).append(okmed)
         rows = sorted(bad.items(), key=lambda kv: -len(kv[1]))
         for feed, ts in rows:
-            print("  %-18s %4d %4d  %4d/%-5d %5.2f  %8.1f" %
-                  (project, feed, feed + 1, len(ts), len(good), len(ts) / len(good), statistics.median(ts)))
+            print("  %-18s %4d %4d  %4d/%-5d %5.2f  %8.1f  %8.1f" %
+                  (project, feed, feed + 1, len(ts), len(good), len(ts) / len(good),
+                   statistics.median(ts), statistics.median(ref[feed])))
 
 
 #                  our GBTIDL procedures live in pro/
