@@ -31,6 +31,8 @@ import sys
 print("### Working in pro")
 os.chdir('pro')
 
+dotsys = True
+dobeams = True
 for project in sys.argv[1:]:
     #  @todo rawdata/project must exist, as a check
     print("### Working on %s" % project)
@@ -73,48 +75,62 @@ for project in sys.argv[1:]:
     os.system('gbtidl do2.pro > do2.log')
 
 
+    if dotsys:
+        print("### parsing pro/do2.log to find the tsys lines for the %d VANES" % nvanes)
+        fp = open("do2.log")
+        lines = fp.readlines()
+        grab = False
+        tsys = []
+        tau0 = ''
+        for line in lines:
+            words = line.strip().split()
+            if len(words) > 2:
+                if words[0][:8] == '(zenith)':
+                    tau0 = words[3]
+                if grab:
+                    tsys.append(line.strip() + ' ' + tau0 + '\n')
+                    grab = False
+                if words[0][:4] == 'Tatm':
+                    grab = True
+        fp.close()
 
-    print("### parsing pro/do2.log to find the tsys lines for the %d VANES" % nvanes)
-    fp = open("do2.log")
-    lines = fp.readlines()
-    grab = False
-    tsys = []
-    tau0 = ''
-    for line in lines:
-        words = line.strip().split()
-        if len(words) > 2:
-            if words[0][:8] == '(zenith)':
-                tau0 = words[3]
-            if grab:
-                tsys.append(line.strip() + ' ' + tau0 + '\n')
-                grab = False
-            if words[0][:4] == 'Tatm':
-                grab = True
-    fp.close()
 
+        print("### writing pro/%s.tsys with %d vanes" % (project,nvanes))
+        fp = open("%s.tsys" % project, "w")
+        fp.write("#  %s\n" % project)
+        #fp.write("#   SCAN       Tsys_mean       Tsys_rms        Tsys_min        Tsys_max\n")
+        #          17  307.74   23.20  270.93  357.18  437.21  372.15  257.60  
+        fp.write("# SCAN Tsys_mean rms min     max     Tcal    Twarm   Tatm  tau0\n")
+        for t in tsys:
+            fp.write(t)
+        fp.close()
 
-    print("### writing pro/%s.tsys with %d vanes" % (project,nvanes))
-    fp = open("%s.tsys" % project, "w")
-    fp.write("#  %s\n" % project)
-    #fp.write("#   SCAN       Tsys_mean       Tsys_rms        Tsys_min        Tsys_max\n")
-    #          17  307.74   23.20  270.93  357.18  437.21  372.15  257.60  
-    fp.write("# SCAN Tsys_mean rms min     max     Tcal    Twarm   Tatm  tau0\n")
-    for t in tsys:
-        fp.write(t)
-    fp.close()
+    if False:
+        print("### writing pro/do3.pro")
+        fp = open('do3.pro','w')
+        fp.write('offline,"%s"\n' % project)
+        for v in vanes:
+            fp.write('vanecal3,%s\n' % v)
+        fp.write('exit\n')
+        fp.close()
 
-    print("### writing pro/do3.pro")
-    fp = open('do3.pro','w')
-    fp.write('offline,"%s"\n' % project)
-    for v in vanes:
-        fp.write('vanecal3,%s\n' % v)
-    fp.write('exit\n')
-    fp.close()
+        outcmd = f"gbtidl do3.pro> do3_{project}.log"
+        print(f"### {outcmd}")
+        os.system(outcmd)
 
-    outcmd = f"gbtidl do3.pro> do3_{project}.log"
+    if dobeams:
+        print("### writing pro/dobeams.pro")
+        fp = open('dobeams.pro','w')
+        fp.write('offline,"%s"\n' % project)
+        fp.write('freeze')
+        for v in vanes:
+            fp.write('vanecal,%s\n' % v)
+        fp.write('exit\n')
+        fp.close()
+
+    outcmd = f"gbtidl dobeams.pro> dobeams_{project}.log"
     print(f"### {outcmd}")
     os.system(outcmd)
-
 
 print("All done!")
 
