@@ -186,9 +186,9 @@ rsync:
 	-rsync -ahv --bwlimit=8000 $(SDIR)/$(PID)_$(SEQ) $(REM)/GBTRawdata
 
 #  this lengthy IDL based procedure computes the mean/rms/min/max for tsys for a given SEQ
-## tsys:	 make tsys and summary files for SEQ=$SEQ
+## tsys:	 make tsys and summary files for SEQ=$SEQ (extra tsys.py options via TSYSARGS, e.g. TSYSARGS="--no-beams --vc3")
 tsys:
-	./tsys.py $(PID)_$(SEQ)
+	./tsys.py $(TSYSARGS) $(PID)_$(SEQ)
 	mv pro/$(PID)_$(SEQ).tsys tsyslogs
 	@echo git add			tsyslogs/$(PID)_$(SEQ).tsys
 	@echo git commit -m new tsyslogs/$(PID)_$(SEQ).tsys

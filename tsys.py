@@ -25,17 +25,31 @@
 """
 
 import os
-import sys
+import argparse
+
+parser = argparse.ArgumentParser(description="Compute Tsys for all VANEs in GBT sessions")
+parser.add_argument("projects", metavar="project", nargs="+",
+                    help="GBT session(s), e.g. AGBT25B_386_01")
+parser.add_argument("--tsys", action=argparse.BooleanOptionalAction, default=True,
+                    help="run vanecal2 and write the .tsys file (default: %(default)s)")
+parser.add_argument("--beams", action=argparse.BooleanOptionalAction, default=True,
+                    help="run vanecal for per-beam Tsys (default: %(default)s)")
+parser.add_argument("--vc3", action=argparse.BooleanOptionalAction, default=False,
+                    help="run vanecal3 (default: %(default)s)")
+parser.add_argument("--freeze", action=argparse.BooleanOptionalAction, default=True,
+                    help="issue 'freeze' in the GBTIDL scripts (default: %(default)s)")
+args = parser.parse_args()
+
+dotsys = args.tsys
+dobeams = args.beams
+dovc3 = args.vc3
+dofreeze = args.freeze
 
 #                  our GBTIDL procedures live in pro/
 print("### Working in pro")
 os.chdir('pro')
 
-dotsys = True
-dobeams = True
-dovc3 = False
-dofreeze = True
-for project in sys.argv[1:]:
+for project in args.projects:
     #  @todo rawdata/project must exist, as a check
     print("### Working on %s" % project)
 
@@ -68,7 +82,7 @@ for project in sys.argv[1:]:
     fp = open('do2.pro','w')
     fp.write('offline,"%s"\n' % project)
     if dofreeze:
-        fp.write('freeze')
+        fp.write('freeze\n')
     for v in vanes:
         fp.write('vanecal2,%s\n' % v)
     fp.write('exit\n')
@@ -114,7 +128,7 @@ for project in sys.argv[1:]:
         fp = open('do3.pro','w')
         fp.write('offline,"%s"\n' % project)
         if dofreeze:
-            fp.write('freeze')
+            fp.write('freeze\n')
         for v in vanes:
             fp.write('vanecal3,%s\n' % v)
         fp.write('exit\n')
@@ -129,15 +143,15 @@ for project in sys.argv[1:]:
         fp = open('dobeams.pro','w')
         fp.write('offline,"%s"\n' % project)
         if dofreeze:
-            fp.write('freeze')
+            fp.write('freeze\n')
         for v in vanes:
             fp.write('vanecal,%s\n' % v)
         fp.write('exit\n')
         fp.close()
 
-    outcmd = f"gbtidl dobeams.pro> dobeams_{project}.log"
-    print(f"### {outcmd}")
-    os.system(outcmd)
+        outcmd = f"gbtidl dobeams.pro> dobeams_{project}.log"
+        print(f"### {outcmd}")
+        os.system(outcmd)
 
 print("All done!")
 

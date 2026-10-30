@@ -42,7 +42,14 @@ WHen all observing is done, the tsys, summary, and astridlogs should be created.
 
       make tsys [SEQ=03]
 
-this command will take a while. It will create both the tsys and summary files.  The astrid logs with
+this command will take a while. It will create both the tsys and summary files.  By default `tsys.py`
+runs the Tsys (`vanecal2`), per-beam (`vanecal`) and `freeze` steps, and skips `vanecal3`. Change this by
+passing options through `TSYSARGS`, e.g.
+
+      make tsys SEQ=03 TSYSARGS="--no-beams --vc3"
+
+The options are `--tsys`, `--beams`, `--vc3` and `--freeze`, each with a `--no-` form
+(see `./tsys.py --help`). The astrid logs with
 
       make astrid [SEQ=03]
 
