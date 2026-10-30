@@ -33,6 +33,8 @@ os.chdir('pro')
 
 dotsys = True
 dobeams = True
+dovc3 = False
+dofreeze = True
 for project in sys.argv[1:]:
     #  @todo rawdata/project must exist, as a check
     print("### Working on %s" % project)
@@ -65,6 +67,8 @@ for project in sys.argv[1:]:
     print("### writing pro/do2.pro")
     fp = open('do2.pro','w')
     fp.write('offline,"%s"\n' % project)
+    if dofreeze:
+        fp.write('freeze')
     for v in vanes:
         fp.write('vanecal2,%s\n' % v)
     fp.write('exit\n')
@@ -105,10 +109,12 @@ for project in sys.argv[1:]:
             fp.write(t)
         fp.close()
 
-    if False:
+    if dovc3:
         print("### writing pro/do3.pro")
         fp = open('do3.pro','w')
         fp.write('offline,"%s"\n' % project)
+        if dofreeze:
+            fp.write('freeze')
         for v in vanes:
             fp.write('vanecal3,%s\n' % v)
         fp.write('exit\n')
@@ -122,7 +128,8 @@ for project in sys.argv[1:]:
         print("### writing pro/dobeams.pro")
         fp = open('dobeams.pro','w')
         fp.write('offline,"%s"\n' % project)
-        fp.write('freeze')
+        if dofreeze:
+            fp.write('freeze')
         for v in vanes:
             fp.write('vanecal,%s\n' % v)
         fp.write('exit\n')
