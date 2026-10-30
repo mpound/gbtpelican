@@ -49,6 +49,8 @@ parser.add_argument("--tsys-min", type=float, default=50.0,
                     help="reject a scan if its median beam Tsys is below this, in K (default: %(default)s)")
 parser.add_argument("--tsys-max", type=float, default=1000.0,
                     help="reject a scan if its median beam Tsys is above this, in K (default: %(default)s)")
+parser.add_argument("--verbose", "-v", action=argparse.BooleanOptionalAction, default=False,
+                    help="run in verbose mode. (default: %(default)s)")
 args = parser.parse_args()
 
 dotsys = args.tsys
@@ -104,7 +106,8 @@ def beam_table(projects, factor, tmin, tmax):
 
 
 #                  our GBTIDL procedures live in pro/
-print("### Working in pro")
+if args.verbose:
+    print("### Working in pro")
 os.chdir('pro')
 
 if args.parse_only:
@@ -113,10 +116,9 @@ if args.parse_only:
 
 for project in args.projects:
     #  @todo rawdata/project must exist, as a check
-    print("### Working on %s" % project)
-
-
-    print("### writing pro/do1.pro to set the summary")
+    if args.verbose:
+        print("### Working on %s" % project)
+        print("### writing pro/do1.pro to set the summary")
     fp = open('do1.pro','w')
     fp.write('offline,"%s"\n' % project)
     fp.write('summary,"%s.summary"\n' % project)
@@ -124,11 +126,13 @@ for project in args.projects:
     fp.close()
 
 
-    print("### gbtidl do1.pro > do1.log")
+    if args.verbose:
+        print("### gbtidl do1.pro > do1.log")
     os.system('gbtidl do1.pro > do1.log')
 
 
-    print("### parsing pro/%s.summary to find the VANE scans" % project)
+    if args.verbose:
+        print("### parsing pro/%s.summary to find the VANE scans" % project)
     vanes = []
     fp = open("%s.summary" % project)
     lines = fp.readlines()
@@ -140,7 +144,8 @@ for project in args.projects:
     fp.close()
     nvanes = len(vanes)
 
-    print("### writing pro/do2.pro")
+    if args.verbose:
+        print("### writing pro/do2.pro")
     fp = open('do2.pro','w')
     fp.write('offline,"%s"\n' % project)
     if dofreeze:
@@ -151,12 +156,14 @@ for project in args.projects:
     fp.close()
 
 
-    print("### gbtidl do2.pro > do2.log")
+    if args.verbose:
+        print("### gbtidl do2.pro > do2.log")
     os.system('gbtidl do2.pro > do2.log')
 
 
     if dotsys:
-        print("### parsing pro/do2.log to find the tsys lines for the %d VANES" % nvanes)
+        if args.verbose:
+            print("### parsing pro/do2.log to find the tsys lines for the %d VANES" % nvanes)
         fp = open("do2.log")
         lines = fp.readlines()
         grab = False
@@ -175,7 +182,8 @@ for project in args.projects:
         fp.close()
 
 
-        print("### writing pro/%s.tsys with %d vanes" % (project,nvanes))
+        if args.verbose:
+            print("### writing pro/%s.tsys with %d vanes" % (project,nvanes))
         fp = open("%s.tsys" % project, "w")
         fp.write("#  %s\n" % project)
         #fp.write("#   SCAN       Tsys_mean       Tsys_rms        Tsys_min        Tsys_max\n")
@@ -186,7 +194,8 @@ for project in args.projects:
         fp.close()
 
     if dovc3:
-        print("### writing pro/do3.pro")
+        if args.verbose:
+            print("### writing pro/do3.pro")
         fp = open('do3.pro','w')
         fp.write('offline,"%s"\n' % project)
         if dofreeze:
@@ -197,11 +206,13 @@ for project in args.projects:
         fp.close()
 
         outcmd = f"gbtidl do3.pro> do3_{project}.log"
-        print(f"### {outcmd}")
+        if args.verbose:
+            print(f"### {outcmd}")
         os.system(outcmd)
 
     if dobeams:
-        print("### writing pro/dobeams.pro")
+        if args.verbose:
+            print("### writing pro/dobeams.pro")
         fp = open('dobeams.pro','w')
         fp.write('offline,"%s"\n' % project)
         if dofreeze:
@@ -212,15 +223,15 @@ for project in args.projects:
         fp.close()
 
         outcmd = f"gbtidl dobeams.pro> dobeams_{project}.log"
-        print(f"### {outcmd}")
+        if args.verbose:
+            print(f"### {outcmd}")
         os.system(outcmd)
 
 if dobeams:
     beam_table(args.projects, args.bad_factor, args.tsys_min, args.tsys_max)
 
-print("All done!")
-
-
+if args.verbose:
+    print("All done!")
 """
 
 Connecting to file: /home/sdfits/AGBT21B_024_02/AGBT21B_024_02.raw.vegas
