@@ -53,5 +53,3 @@ One block per session, one row per underperforming feed, sorted by fraction of s
 
 The line above each block gives the number of scans used and rejected.
 
-
-As Marc if you have questions. 
