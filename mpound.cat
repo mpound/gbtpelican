@@ -1,0 +1,9 @@
+# 25B-386
+# Source list with radial velocities in J2000 RA DEC coordinates
+# Marc Pound's catalog
+FORMAT = SPHERICAL
+COORDMODE = J2000
+VELDEF = VRAD-LSR
+HEAD = NAME RA DEC VELOCITY
+PelicanCenter 20:51:08.07 +44:26:35.3 0.0
+#HH555         20:51:18.20 +44:25:41.6 0.0
