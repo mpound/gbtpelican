@@ -25,6 +25,9 @@
 """
 
 import os
+import sys
+import math
+import statistics
 import argparse
 
 parser = argparse.ArgumentParser(description="Compute Tsys for all VANEs in GBT sessions")
@@ -38,6 +41,16 @@ parser.add_argument("--vc3", action=argparse.BooleanOptionalAction, default=Fals
                     help="run vanecal3 (default: %(default)s)")
 parser.add_argument("--freeze", action=argparse.BooleanOptionalAction, default=False,
                     help="issue 'freeze' in the GBTIDL scripts to stop plotter from updating (default: %(default)s)")
+parser.add_argument("--parse-only", action="store_true",
+                    help="skip GBTIDL; only parse existing pro/dobeams_<project>.log files and print the bad-beam table")
+parser.add_argument("--bad-factor", type=float, default=1.3,
+                    help="flag a beam if Tsys > factor * scan median (default: %(default)s)")
+parser.add_argument("--tsys-min", type=float, default=50.0,
+                    help="reject a scan if its median beam Tsys is below this, in K (default: %(default)s)")
+parser.add_argument("--tsys-max", type=float, default=1000.0,
+                    help="reject a scan if its median beam Tsys is above this, in K (default: %(default)s)")
+parser.add_argument("--verbose", "-v", action=argparse.BooleanOptionalAction, default=False,
+                    help="run in verbose mode. (default: %(default)s)")
 args = parser.parse_args()
 
 dotsys = args.tsys
@@ -45,16 +58,68 @@ dobeams = args.beams
 dovc3 = args.vc3
 dofreeze = args.freeze
 
+
+def parse_beams(logfile):
+    """Parse a dobeams log into {scan: [(feed, Tsys), ...]}, keeping only complete 16-beam scans."""
+    scans = {}
+    scan = None
+    with open(logfile) as fp:
+        for line in fp:
+            words = line.split()
+            if words[:1] == ['Scan:']:
+                scan = int(words[1])
+                scans[scan] = []
+            elif scan is not None and line.startswith('fdnum, beam'):
+                scans[scan].append((int(words[3]), float(words[5])))
+    return {s: b for s, b in scans.items() if len(b) == 16}
+
+
+def beam_table(projects, factor, tmin, tmax):
+    """Print, per session, the beams exceeding factor * scan median and how often."""
+    print("# Session           Feed Beam  Nbad/Nscan  Frac  med(Tsys)_bad[K]  med(Tsys)_good[K]  bad/good")
+    for project in projects:
+        logfile = "dobeams_%s.log" % project
+        if not os.path.exists(logfile):
+            print("# %s: %s not found" % (project, logfile))
+            continue
+        scans = parse_beams(logfile)
+        good = {}
+        for scan, beams in scans.items():
+            vals = sorted(t for f, t in beams)
+            med = (vals[7] + vals[8]) / 2
+            if all(math.isfinite(t) for t in vals) and tmin <= med <= tmax:
+                good[scan] = (beams, med)
+        print("# %s: %d scans used, %d rejected" % (project, len(good), len(scans) - len(good)))
+        bad = {}      # feed -> Tsys in the scans where it was bad
+        ref = {}      # feed -> median of the unflagged beams in those same scans
+        for scan, (beams, med) in good.items():
+            flagged = {f for f, t in beams if t > factor * med or t < tmin}
+            okmed = statistics.median(t for f, t in beams if f not in flagged)
+            for feed in flagged:
+                bad.setdefault(feed, []).append(dict(beams)[feed])
+                ref.setdefault(feed, []).append(okmed)
+        rows = sorted(bad.items(), key=lambda kv: -len(kv[1]))
+        for feed, ts in rows:
+            mbad, mgood = statistics.median(ts), statistics.median(ref[feed])
+            print("  %-18s %4d %4d  %4d/%-5d %5.2f  %8.1f  %8.1f  %8.1f" %
+                  (project, feed, feed + 1, len(ts), len(good), len(ts) / len(good),
+                   mbad, mgood, mbad / mgood))
+
+
 #                  our GBTIDL procedures live in pro/
-print("### Working in pro")
+if args.verbose:
+    print("### Working in pro")
 os.chdir('pro')
+
+if args.parse_only:
+    beam_table(args.projects, args.bad_factor, args.tsys_min, args.tsys_max)
+    sys.exit(0)
 
 for project in args.projects:
     #  @todo rawdata/project must exist, as a check
-    print("### Working on %s" % project)
-
-
-    print("### writing pro/do1.pro to set the summary")
+    if args.verbose:
+        print("### Working on %s" % project)
+        print("### writing pro/do1.pro to set the summary")
     fp = open('do1.pro','w')
     fp.write('offline,"%s"\n' % project)
     fp.write('summary,"%s.summary"\n' % project)
@@ -62,11 +127,13 @@ for project in args.projects:
     fp.close()
 
 
-    print("### gbtidl do1.pro > do1.log")
+    if args.verbose:
+        print("### gbtidl do1.pro > do1.log")
     os.system('gbtidl do1.pro > do1.log')
 
 
-    print("### parsing pro/%s.summary to find the VANE scans" % project)
+    if args.verbose:
+        print("### parsing pro/%s.summary to find the VANE scans" % project)
     vanes = []
     fp = open("%s.summary" % project)
     lines = fp.readlines()
@@ -78,7 +145,8 @@ for project in args.projects:
     fp.close()
     nvanes = len(vanes)
 
-    print("### writing pro/do2.pro")
+    if args.verbose:
+        print("### writing pro/do2.pro")
     fp = open('do2.pro','w')
     fp.write('offline,"%s"\n' % project)
     if dofreeze:
@@ -89,12 +157,14 @@ for project in args.projects:
     fp.close()
 
 
-    print("### gbtidl do2.pro > do2.log")
+    if args.verbose:
+        print("### gbtidl do2.pro > do2.log")
     os.system('gbtidl do2.pro > do2.log')
 
 
     if dotsys:
-        print("### parsing pro/do2.log to find the tsys lines for the %d VANES" % nvanes)
+        if args.verbose:
+            print("### parsing pro/do2.log to find the tsys lines for the %d VANES" % nvanes)
         fp = open("do2.log")
         lines = fp.readlines()
         grab = False
@@ -113,7 +183,8 @@ for project in args.projects:
         fp.close()
 
 
-        print("### writing pro/%s.tsys with %d vanes" % (project,nvanes))
+        if args.verbose:
+            print("### writing pro/%s.tsys with %d vanes" % (project,nvanes))
         fp = open("%s.tsys" % project, "w")
         fp.write("#  %s\n" % project)
         #fp.write("#   SCAN       Tsys_mean       Tsys_rms        Tsys_min        Tsys_max\n")
@@ -124,7 +195,8 @@ for project in args.projects:
         fp.close()
 
     if dovc3:
-        print("### writing pro/do3.pro")
+        if args.verbose:
+            print("### writing pro/do3.pro")
         fp = open('do3.pro','w')
         fp.write('offline,"%s"\n' % project)
         if dofreeze:
@@ -135,12 +207,13 @@ for project in args.projects:
         fp.close()
 
         outcmd = f"gbtidl do3.pro> do3_{project}.log"
-        print(f"### {outcmd}")
+        if args.verbose:
+            print(f"### {outcmd}")
         os.system(outcmd)
 
-#@TODO parse this to get statistics on beams.
     if dobeams:
-        print("### writing pro/dobeams.pro")
+        if args.verbose:
+            print("### writing pro/dobeams.pro")
         fp = open('dobeams.pro','w')
         fp.write('offline,"%s"\n' % project)
         if dofreeze:
@@ -151,12 +224,15 @@ for project in args.projects:
         fp.close()
 
         outcmd = f"gbtidl dobeams.pro> dobeams_{project}.log"
-        print(f"### {outcmd}")
+        if args.verbose:
+            print(f"### {outcmd}")
         os.system(outcmd)
 
-print("All done!")
+if dobeams:
+    beam_table(args.projects, args.bad_factor, args.tsys_min, args.tsys_max)
 
-
+if args.verbose:
+    print("All done!")
 """
 
 Connecting to file: /home/sdfits/AGBT21B_024_02/AGBT21B_024_02.raw.vegas
